@@ -1,7 +1,11 @@
-cmake_minimum_required(VERSION 3.12.0)
-project(project_title LANGUAGES CXX C)
+cmake_minimum_required(VERSION 3.12)
 
-include(../common/cmake-common.cmake)
+project(wave_equation LANGUAGES CXX)
 
-add_executable(lab-01 src/lab-01.cpp src/Poisson1D.cpp)
-deal_ii_setup_target(lab-01)
+find_package(deal.II REQUIRED HINTS /usr/lib/x86_64-linux-gnu/cmake/deal.II)
+
+deal_ii_initialize_cached_variables()
+
+add_executable(wave_equation src/wave_equation.cc)
+
+deal_ii_setup_target(wave_equation)
