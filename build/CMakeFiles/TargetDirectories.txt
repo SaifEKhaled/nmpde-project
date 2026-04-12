@@ -1,0 +1,3 @@
+/home/safsofxd/nmpde-project/build/CMakeFiles/wave_equation.dir
+/home/safsofxd/nmpde-project/build/CMakeFiles/edit_cache.dir
+/home/safsofxd/nmpde-project/build/CMakeFiles/rebuild_cache.dir
