@@ -8,7 +8,7 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "/home/safsofxd/nmpde-project/src/wave_equation.cc" "CMakeFiles/wave_equation.dir/src/wave_equation.cc.o" "gcc" "CMakeFiles/wave_equation.dir/src/wave_equation.cc.o.d"
+  "/home/safsofxd/nmpde-project/src/main.cc" "CMakeFiles/wave_equation.dir/src/main.cc.o" "gcc" "CMakeFiles/wave_equation.dir/src/main.cc.o.d"
   )
 
 # Targets to which this target links.

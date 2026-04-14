@@ -1,6 +1,6 @@
 file(REMOVE_RECURSE
-  "CMakeFiles/wave_equation.dir/src/wave_equation.cc.o"
-  "CMakeFiles/wave_equation.dir/src/wave_equation.cc.o.d"
+  "CMakeFiles/wave_equation.dir/src/main.cc.o"
+  "CMakeFiles/wave_equation.dir/src/main.cc.o.d"
   "wave_equation"
   "wave_equation.pdb"
 )

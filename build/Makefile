@@ -129,29 +129,29 @@ wave_equation/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/wave_equation.dir/build.make CMakeFiles/wave_equation.dir/build
 .PHONY : wave_equation/fast
 
-src/wave_equation.o: src/wave_equation.cc.o
-.PHONY : src/wave_equation.o
+src/main.o: src/main.cc.o
+.PHONY : src/main.o
 
 # target to build an object file
-src/wave_equation.cc.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/wave_equation.dir/build.make CMakeFiles/wave_equation.dir/src/wave_equation.cc.o
-.PHONY : src/wave_equation.cc.o
+src/main.cc.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/wave_equation.dir/build.make CMakeFiles/wave_equation.dir/src/main.cc.o
+.PHONY : src/main.cc.o
 
-src/wave_equation.i: src/wave_equation.cc.i
-.PHONY : src/wave_equation.i
+src/main.i: src/main.cc.i
+.PHONY : src/main.i
 
 # target to preprocess a source file
-src/wave_equation.cc.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/wave_equation.dir/build.make CMakeFiles/wave_equation.dir/src/wave_equation.cc.i
-.PHONY : src/wave_equation.cc.i
+src/main.cc.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/wave_equation.dir/build.make CMakeFiles/wave_equation.dir/src/main.cc.i
+.PHONY : src/main.cc.i
 
-src/wave_equation.s: src/wave_equation.cc.s
-.PHONY : src/wave_equation.s
+src/main.s: src/main.cc.s
+.PHONY : src/main.s
 
 # target to generate assembly for a file
-src/wave_equation.cc.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/wave_equation.dir/build.make CMakeFiles/wave_equation.dir/src/wave_equation.cc.s
-.PHONY : src/wave_equation.cc.s
+src/main.cc.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/wave_equation.dir/build.make CMakeFiles/wave_equation.dir/src/main.cc.s
+.PHONY : src/main.cc.s
 
 # Help Target
 help:
@@ -162,9 +162,9 @@ help:
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
 	@echo "... wave_equation"
-	@echo "... src/wave_equation.o"
-	@echo "... src/wave_equation.i"
-	@echo "... src/wave_equation.s"
+	@echo "... src/main.o"
+	@echo "... src/main.i"
+	@echo "... src/main.s"
 .PHONY : help
 
 

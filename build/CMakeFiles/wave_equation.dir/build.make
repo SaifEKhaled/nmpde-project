@@ -69,28 +69,28 @@ include CMakeFiles/wave_equation.dir/progress.make
 # Include the compile flags for this target's objects.
 include CMakeFiles/wave_equation.dir/flags.make
 
-CMakeFiles/wave_equation.dir/src/wave_equation.cc.o: CMakeFiles/wave_equation.dir/flags.make
-CMakeFiles/wave_equation.dir/src/wave_equation.cc.o: ../src/wave_equation.cc
-CMakeFiles/wave_equation.dir/src/wave_equation.cc.o: CMakeFiles/wave_equation.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/safsofxd/nmpde-project/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/wave_equation.dir/src/wave_equation.cc.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/wave_equation.dir/src/wave_equation.cc.o -MF CMakeFiles/wave_equation.dir/src/wave_equation.cc.o.d -o CMakeFiles/wave_equation.dir/src/wave_equation.cc.o -c /home/safsofxd/nmpde-project/src/wave_equation.cc
+CMakeFiles/wave_equation.dir/src/main.cc.o: CMakeFiles/wave_equation.dir/flags.make
+CMakeFiles/wave_equation.dir/src/main.cc.o: ../src/main.cc
+CMakeFiles/wave_equation.dir/src/main.cc.o: CMakeFiles/wave_equation.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/safsofxd/nmpde-project/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/wave_equation.dir/src/main.cc.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/wave_equation.dir/src/main.cc.o -MF CMakeFiles/wave_equation.dir/src/main.cc.o.d -o CMakeFiles/wave_equation.dir/src/main.cc.o -c /home/safsofxd/nmpde-project/src/main.cc
 
-CMakeFiles/wave_equation.dir/src/wave_equation.cc.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/wave_equation.dir/src/wave_equation.cc.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/safsofxd/nmpde-project/src/wave_equation.cc > CMakeFiles/wave_equation.dir/src/wave_equation.cc.i
+CMakeFiles/wave_equation.dir/src/main.cc.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/wave_equation.dir/src/main.cc.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/safsofxd/nmpde-project/src/main.cc > CMakeFiles/wave_equation.dir/src/main.cc.i
 
-CMakeFiles/wave_equation.dir/src/wave_equation.cc.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/wave_equation.dir/src/wave_equation.cc.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/safsofxd/nmpde-project/src/wave_equation.cc -o CMakeFiles/wave_equation.dir/src/wave_equation.cc.s
+CMakeFiles/wave_equation.dir/src/main.cc.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/wave_equation.dir/src/main.cc.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/safsofxd/nmpde-project/src/main.cc -o CMakeFiles/wave_equation.dir/src/main.cc.s
 
 # Object files for target wave_equation
 wave_equation_OBJECTS = \
-"CMakeFiles/wave_equation.dir/src/wave_equation.cc.o"
+"CMakeFiles/wave_equation.dir/src/main.cc.o"
 
 # External object files for target wave_equation
 wave_equation_EXTERNAL_OBJECTS =
 
-wave_equation: CMakeFiles/wave_equation.dir/src/wave_equation.cc.o
+wave_equation: CMakeFiles/wave_equation.dir/src/main.cc.o
 wave_equation: CMakeFiles/wave_equation.dir/build.make
 wave_equation: /usr/lib/x86_64-linux-gnu/libdeal.ii.g.so.9.3.2
 wave_equation: /usr/lib/x86_64-linux-gnu/libtrilinos_pike-blackbox.so
