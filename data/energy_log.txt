@@ -1,0 +1,27 @@
+Number of MPI ranks:            2
+Number of threads on each rank: 2
+Vectorization over 1 doubles = 64 bits (disabled)
+
+   Number of global active cells: 15412
+   Number of degrees of freedom: 249065
+   Time step size: 0.00292997, finest cell: 0.117188
+
+   Time:     -10, solution L2 error: 5.4495e-12
+   Time:   -8.54, solution L2 error: 9.6815e-10
+   Time:   -7.07, solution L2 error: 5.1545e-09
+   Time:   -5.61, solution L2 error: 1.4687e-08
+   Time:   -4.14, solution L2 error: 3.1045e-08
+   Time:   -2.68, solution L2 error: 5.5049e-08
+   Time:   -1.21, solution L2 error: 8.6738e-08
+   Time:   0.255, solution L2 error: 1.2531e-07
+   Time:    1.72, solution L2 error: 1.6913e-07
+   Time:    3.18, solution L2 error: 2.1578e-07
+   Time:    4.65, solution L2 error: 2.6223e-07
+   Time:    6.11, solution L2 error: 3.0498e-07
+   Time:    7.58, solution L2 error: 3.4029e-07
+   Time:    9.04, solution L2 error: 3.6447e-07
+   Time:      10, solution L2 error: 0.006482
+
+   Performed 6826 time steps.
+   Average wallclock time per time step: 0.040681s
+   Spent 18.528s on output and 277.69s on computations.

@@ -3009,6 +3009,16 @@ CMakeFiles/wave_equation.dir/src/main.cc.o
  /usr/include/deal.II/lac/precondition.h
  /usr/include/deal.II/base/cuda_size.h
  /usr/include/deal.II/lac/diagonal_matrix.h
+ /usr/include/deal.II/lac/trilinos_sparse_matrix.h
+ /usr/include/deal.II/lac/trilinos_index_access.h
+ /usr/include/trilinos/Epetra_BlockMap.h
+ /usr/include/trilinos/Epetra_CrsGraph.h
+ /usr/include/trilinos/Epetra_CrsMatrix.h
+ /usr/include/trilinos/Epetra_RowMatrix.h
+ /usr/include/trilinos/Epetra_Operator.h
+ /usr/include/trilinos/Epetra_Export.h
+ /usr/include/trilinos/Epetra_FECrsMatrix.h
+ /usr/include/trilinos/Epetra_Operator.h
  /usr/include/c++/11/fstream
  /usr/include/x86_64-linux-gnu/c++/11/bits/basic_file.h
  /usr/include/x86_64-linux-gnu/c++/11/bits/c++io.h

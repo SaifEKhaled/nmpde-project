@@ -32,5 +32,9 @@
 *.exe
 *.out
 *.app
-
+*.vtu
+*.pvtu
+.results
 */build/*
+
+

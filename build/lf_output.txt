@@ -1,0 +1,4 @@
+HPC Solver Active. Scheme: ExplicitLeapfrog
+   Time:     -10, L2 error: 1.73842e-10, Energy: 2.46283
+   Time: -5.3125, L2 error: 3.02061e+11, Energy: 1.27476e+26
+   Time:  -0.625, L2 error: 7.76715e+36, Energy: 1.01198e+77

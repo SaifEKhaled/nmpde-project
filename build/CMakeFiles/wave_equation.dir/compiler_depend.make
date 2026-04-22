@@ -3008,6 +3008,16 @@ CMakeFiles/wave_equation.dir/src/main.cc.o: ../src/main.cc \
   /usr/include/deal.II/lac/precondition.h \
   /usr/include/deal.II/base/cuda_size.h \
   /usr/include/deal.II/lac/diagonal_matrix.h \
+  /usr/include/deal.II/lac/trilinos_sparse_matrix.h \
+  /usr/include/deal.II/lac/trilinos_index_access.h \
+  /usr/include/trilinos/Epetra_BlockMap.h \
+  /usr/include/trilinos/Epetra_CrsGraph.h \
+  /usr/include/trilinos/Epetra_CrsMatrix.h \
+  /usr/include/trilinos/Epetra_RowMatrix.h \
+  /usr/include/trilinos/Epetra_Operator.h \
+  /usr/include/trilinos/Epetra_Export.h \
+  /usr/include/trilinos/Epetra_FECrsMatrix.h \
+  /usr/include/trilinos/Epetra_Operator.h \
   /usr/include/c++/11/fstream \
   /usr/include/x86_64-linux-gnu/c++/11/bits/basic_file.h \
   /usr/include/x86_64-linux-gnu/c++/11/bits/c++io.h \
@@ -3019,6 +3029,12 @@ CMakeFiles/wave_equation.dir/src/main.cc.o: ../src/main.cc \
 /usr/include/x86_64-linux-gnu/c++/11/bits/c++io.h:
 
 /usr/include/x86_64-linux-gnu/c++/11/bits/basic_file.h:
+
+/usr/include/trilinos/Epetra_Operator.h:
+
+/usr/include/deal.II/lac/trilinos_index_access.h:
+
+/usr/include/deal.II/lac/trilinos_sparse_matrix.h:
 
 /usr/include/deal.II/base/cuda_size.h:
 
@@ -3201,6 +3217,8 @@ CMakeFiles/wave_equation.dir/src/main.cc.o: ../src/main.cc \
 /usr/include/boost/geometry/strategies/line_interpolate.hpp:
 
 /usr/include/boost/geometry/strategies/cartesian/line_interpolate.hpp:
+
+/usr/include/trilinos/Epetra_FECrsMatrix.h:
 
 /usr/include/boost/geometry/strategies/cartesian/point_in_poly_franklin.hpp:
 
@@ -4664,6 +4682,8 @@ CMakeFiles/wave_equation.dir/src/main.cc.o: ../src/main.cc \
 
 /usr/include/endian.h:
 
+/usr/include/trilinos/Epetra_RowMatrix.h:
+
 /usr/include/boost/mpl/aux_/preprocessed/gcc/iter_fold_impl.hpp:
 
 /usr/include/trilinos/Teuchos_CommUtilities.hpp:
@@ -5009,6 +5029,8 @@ CMakeFiles/wave_equation.dir/src/main.cc.o: ../src/main.cc \
 /usr/include/trilinos/Teuchos_Workspace.hpp:
 
 /usr/include/trilinos/Kokkos_Atomic.hpp:
+
+/usr/include/trilinos/Epetra_Export.h:
 
 /usr/include/x86_64-linux-gnu/bits/fp-fast.h:
 
@@ -8277,6 +8299,8 @@ CMakeFiles/wave_equation.dir/src/main.cc.o: ../src/main.cc \
 /usr/include/trilinos/Sacado_mpl_at.hpp:
 
 /usr/include/tbb/machine/linux_common.h:
+
+/usr/include/trilinos/Epetra_CrsMatrix.h:
 
 /usr/include/linux/futex.h:
 

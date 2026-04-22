@@ -27,6 +27,8 @@
 #include <deal.II/matrix_free/fe_evaluation.h>
 #include <deal.II/lac/solver_cg.h>
 #include <deal.II/lac/precondition.h>
+#include <deal.II/lac/trilinos_sparse_matrix.h>
+#include <deal.II/lac/trilinos_sparsity_pattern.h>
 
 #include <fstream>
 #include <iostream>
@@ -39,7 +41,7 @@ namespace Step48
   const unsigned int dimension = 2;
   const unsigned int fe_degree = 4;
 
-  enum class TimeSteppingScheme { ExplicitLeapfrog, RungeKutta4, ThetaMethod };
+  enum class TimeSteppingScheme {ExplicitLeapfrog, RungeKutta4, ThetaMethod};
 
   // --- OPERATOR 1: Leapfrog (Standard Step-48) ---
   template <int dim, int fe_degree>
@@ -278,6 +280,15 @@ namespace Step48
     LinearAlgebra::distributed::Vector<double> solution, old_solution, old_old_solution, velocity;
     LinearAlgebra::distributed::Vector<double> ku1, ku2, ku3, ku4, kv1, kv2, kv3, kv4, tmp_u;
     unsigned int n_global_refinements;
+
+    // --- NEW: Sparse Matrix Baseline Variables ---
+    bool use_matrix_free; 
+    IndexSet locally_owned_dofs;
+    TrilinosWrappers::SparseMatrix mass_matrix;
+    TrilinosWrappers::SparseMatrix laplace_matrix;
+    void setup_sparse_matrices();
+    void assemble_sparse_matrices();
+    // ---------------------------------------------
     double time, time_step, final_time, cfl_number;
     unsigned int output_timestep_skip;
     TimeSteppingScheme scheme;
@@ -290,7 +301,8 @@ namespace Step48
 #ifdef DEAL_II_WITH_P4EST
     , triangulation(MPI_COMM_WORLD)
 #endif
-    , fe(QGaussLobatto<1>(fe_degree + 1)), dof_handler(triangulation), time(0) {}
+    , fe(QGaussLobatto<1>(fe_degree + 1)), dof_handler(triangulation)
+    , use_matrix_free(true), time(0) {}
 
   template <int dim>
   void SineGordonProblem<dim>::declare_parameters(ParameterHandler &prm) {
@@ -316,6 +328,57 @@ namespace Step48
     theta_param = prm.get_double("Theta parameter");
   }
 
+  // --- NEW: Sparse Matrix Implementation ---
+  template <int dim>
+  void SineGordonProblem<dim>::setup_sparse_matrices() {
+    pcout << "Setting up Trilinos Sparse Matrices..." << std::endl;
+    locally_owned_dofs = dof_handler.locally_owned_dofs();
+    TrilinosWrappers::SparsityPattern dsp(locally_owned_dofs, MPI_COMM_WORLD);
+    DoFTools::make_sparsity_pattern(dof_handler, dsp, constraints, false);
+    dsp.compress();
+    mass_matrix.reinit(dsp);
+    laplace_matrix.reinit(dsp);
+  }
+
+  template <int dim>
+  void SineGordonProblem<dim>::assemble_sparse_matrices() {
+    pcout << "Assembling Sparse Matrices (NMPDE Standard)..." << std::endl;
+    QGauss<dim> quadrature_formula(fe_degree + 1);
+    FEValues<dim> fe_values(fe, quadrature_formula,
+                            update_values | update_gradients | update_JxW_values);
+
+    const unsigned int dofs_per_cell = fe.n_dofs_per_cell();
+    const unsigned int n_q_points    = quadrature_formula.size();
+
+    FullMatrix<double> cell_mass_matrix(dofs_per_cell, dofs_per_cell);
+    FullMatrix<double> cell_laplace_matrix(dofs_per_cell, dofs_per_cell);
+    std::vector<types::global_dof_index> local_dof_indices(dofs_per_cell);
+
+    for (const auto &cell : dof_handler.active_cell_iterators()) {
+      if (cell->is_locally_owned()) {
+        cell_mass_matrix = 0.;
+        cell_laplace_matrix = 0.;
+        fe_values.reinit(cell);
+
+        for (unsigned int q = 0; q < n_q_points; ++q) {
+          const double JxW = fe_values.JxW(q);
+          for (unsigned int i = 0; i < dofs_per_cell; ++i) {
+            for (unsigned int j = 0; j < dofs_per_cell; ++j) {
+              cell_mass_matrix(i, j) += (fe_values.shape_value(i, q) * fe_values.shape_value(j, q)) * JxW;
+              cell_laplace_matrix(i, j) += (fe_values.shape_grad(i, q) * fe_values.shape_grad(j, q)) * JxW;
+            }
+          }
+        }
+        cell->get_dof_indices(local_dof_indices);
+        // Automatically applies your hanging node constraints to the matrix!
+        constraints.distribute_local_to_global(cell_mass_matrix, local_dof_indices, mass_matrix);
+        constraints.distribute_local_to_global(cell_laplace_matrix, local_dof_indices, laplace_matrix);
+      }
+    }
+    mass_matrix.compress(VectorOperation::add);
+    laplace_matrix.compress(VectorOperation::add);
+  }
+  // -----------------------------------------
   template <int dim>
   void SineGordonProblem<dim>::make_grid_and_dofs() {
     GridGenerator::hyper_cube(triangulation, -15, 15);
@@ -337,6 +400,16 @@ namespace Step48
     matrix_free_data.initialize_dof_vector(kv1); matrix_free_data.initialize_dof_vector(kv2);
     matrix_free_data.initialize_dof_vector(kv3); matrix_free_data.initialize_dof_vector(kv4);
     matrix_free_data.initialize_dof_vector(tmp_u);
+
+    // --- NEW: Route the setup based on the toggle ---
+    if (!use_matrix_free) {
+      pcout << "Mode: Standard Sparse Matrix (NMPDE Baseline)" << std::endl;
+      setup_sparse_matrices();
+      assemble_sparse_matrices();
+    } else {
+      pcout << "Mode: High Performance Matrix-Free SIMD" << std::endl;
+    }
+    // ------------------------------------------------
   }
 
   template <int dim>
@@ -374,6 +447,24 @@ namespace Step48
     SineGordonOperation<dim, fe_degree> leap_op(matrix_free_data, time_step);
     LaplaceOperatorMF<dim, fe_degree> lap_op(matrix_free_data);
     StiffnessOperator<dim, fe_degree> stiff_op(matrix_free_data);
+
+    // --- NEW: Universal Universal Wrapper ---
+    auto evaluate_laplacian = [&](LinearAlgebra::distributed::Vector<double> &dst, const LinearAlgebra::distributed::Vector<double> &src) {
+      if (use_matrix_free) {
+        lap_op.apply(dst, src);
+      } else {
+        // Sparse Matrix Baseline: Solve M * dst = -K * src
+        LinearAlgebra::distributed::Vector<double> rhs;
+        matrix_free_data.initialize_dof_vector(rhs); // quick allocation
+        laplace_matrix.vmult(rhs, src);
+        rhs *= -1.0; // The matrix-free version has the negative sign built-in
+        
+        SolverControl solver_control(1000, 1e-10 * rhs.l2_norm() + 1e-14);
+        SolverCG<LinearAlgebra::distributed::Vector<double>> cg(solver_control);
+        cg.solve(mass_matrix, dst, rhs, PreconditionIdentity());
+      }
+    };
+    // ----------------------------------------
     
     // 2. Initial Output
     output_results(0, energy_op.compute(solution, velocity));
@@ -389,10 +480,10 @@ namespace Step48
         leap_op.apply(solution, prev);
         velocity = solution; velocity.add(-1.0, old_old_solution); velocity *= (1.0 / (2.0 * time_step));
       } else if (scheme == TimeSteppingScheme::RungeKutta4) {
-        ku1 = velocity; lap_op.apply(kv1, solution);
-        tmp_u = solution; tmp_u.add(time_step/2.0, ku1); ku2 = velocity; ku2.add(time_step/2.0, kv1); lap_op.apply(kv2, tmp_u);
-        tmp_u = solution; tmp_u.add(time_step/2.0, ku2); ku3 = velocity; ku3.add(time_step/2.0, kv2); lap_op.apply(kv3, tmp_u);
-        tmp_u = solution; tmp_u.add(time_step, ku3); ku4 = velocity; ku4.add(time_step, kv3); lap_op.apply(kv4, tmp_u);
+        ku1 = velocity; evaluate_laplacian(kv1, solution);
+        tmp_u = solution; tmp_u.add(time_step/2.0, ku1); ku2 = velocity; ku2.add(time_step/2.0, kv1); evaluate_laplacian(kv2, tmp_u);
+        tmp_u = solution; tmp_u.add(time_step/2.0, ku2); ku3 = velocity; ku3.add(time_step/2.0, kv2); evaluate_laplacian(kv3, tmp_u);
+        tmp_u = solution; tmp_u.add(time_step, ku3); ku4 = velocity; ku4.add(time_step, kv3); evaluate_laplacian(kv4, tmp_u);
         solution.add(time_step/6.0, ku1); solution.add(time_step/3.0, ku2); solution.add(time_step/3.0, ku3); solution.add(time_step/6.0, ku4);
         velocity.add(time_step/6.0, kv1); velocity.add(time_step/3.0, kv2); velocity.add(time_step/3.0, kv3); velocity.add(time_step/6.0, kv4);
       } else if (scheme == TimeSteppingScheme::ThetaMethod) {
@@ -400,8 +491,7 @@ namespace Step48
         ku1 = solution; ku1 *= 2.0; ku1.add(-1.0, old_solution);
         if (std::abs(theta_param-0.5)>1e-8) { stiff_op.apply(tmp_u, solution); ku1.add(-(1.0-2.0*theta_param)*time_step*time_step, tmp_u); }
         old_old_solution.swap(old_solution); old_solution.swap(solution);
-        SolverControl sc(1000, 1e-10 * ku1.l2_norm()); SolverCG<LinearAlgebra::distributed::Vector<double>> cg(sc);
-        cg.solve(mat, solution, ku1, PreconditionIdentity());
+        SolverControl sc(5000, 1e-8 * ku1.l2_norm() + 1e-12); SolverCG<LinearAlgebra::distributed::Vector<double>> cg(sc);        cg.solve(mat, solution, ku1, PreconditionIdentity());
         velocity = solution; velocity.add(-1.0, old_solution); velocity *= (1.0/time_step);
       }
       wtime += timer.wall_time();
