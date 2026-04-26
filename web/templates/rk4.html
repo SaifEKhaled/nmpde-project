@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Runge-Kutta 4 Integration{% endblock %}
+{% block content %}
+    <h1 style="border-bottom: 2px solid #2980b9; padding-bottom: 10px;">Methodology II: Runge-Kutta 4 (RK4)</h1>
+    
+    <h2 class="section-title">1. System Transformation & The RK4 Scheme</h2>
+    <p>Unlike the Leapfrog scheme, the classical Runge-Kutta algorithm is strictly designed for systems of first-order ordinary differential equations. To integrate the second-order wave equation, the continuous PDE is decoupled into a paired state-space system by introducing a velocity vector field $\mathbf{v}$:</p>
+    <p>$$ \dot{\mathbf{u}} = \mathbf{v} $$</p>
+    <p>$$ \dot{\mathbf{v}} = -M^{-1}K \mathbf{u} $$</p>
+    <p>The standard 4-stage RK method requires evaluating the Matrix-Free Laplacian operator four distinct times per temporal step ($k_1, k_2, k_3, k_4$). While this increases the computational footprint per step by a factor of 4, it mathematically guarantees an exceptionally small local temporal truncation error of $\mathcal{O}(\Delta t^5)$.</p>
+
+    <h2 class="section-title">2. Architectural Approach & The Accuracy Paradox</h2>
+    <p>RK4 was deployed in this engine as the high-precision benchmark for transient states. However, empirical testing revealed an advanced numerical phenomenon: <strong>The Spatial-Temporal Convergence Paradox</strong>.</p>
+
+    <div style="background: #f0f8ff; padding: 25px; border-radius: 8px; margin: 20px 0; font-family: 'Georgia', serif; border-left: 4px solid #2980b9;">
+        <p><strong>The Spatial Floor:</strong> A critical insight of this research is the decoupling of spatial and temporal truncation limits. Because the C++ architecture utilizes a Matrix-Free $Q_4$ spectral shape function, the physical domain is resolved to an extreme precision of $\sim 1.85 \times 10^{-9}$. This creates an artificial "floor." If the RK4 time step is small, its temporal error vanishes entirely beneath this spatial floor. If the time step is increased to force the temporal error above the floor, the solver violently collides with the Von Neumann absolute stability limit ($CFL \approx 2.82$) and explodes. Consequently, the true $\mathcal{O}(\Delta t^4)$ convergence curve is mathematically inaccessible for this specific grid.</p>
+    </div>
+
+    <h2 class="section-title">3. Empirical Verification Suite</h2>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 30px;">
+        
+        <div class="card" style="padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <h3 style="color: #2980b9; font-size: 1.1em;">Test I: Non-Symplectic Drift</h3>
+            <img src="/results/rk4/viz_1_energy.png" alt="Energy Drift" style="width: 100%; border-radius: 4px;">
+            <p style="font-size: 0.9em; margin-top: 15px; line-height: 1.5;"><strong>Analysis:</strong> Unlike Leapfrog, RK4 does not preserve phase-space geometry. Over extended simulation times, the lack of symplectic structure introduces artificial numerical damping. The baseline energy slowly sinks below unity ($1.00$), physically restricting RK4 to short-to-medium transient simulations where this drift is negligible.</p>
+        </div>
+
+        <div class="card" style="padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <h3 style="color: #2980b9; font-size: 1.1em;">Test II: Dissipative Topology</h3>
+            <img src="/results/rk4/viz_2_phase.png" alt="Phase Topology" style="width: 100%; border-radius: 4px;">
+            <p style="font-size: 0.9em; margin-top: 15px; line-height: 1.5;"><strong>Analysis:</strong> Utilizing Takens' delay embedding on the system energy state reveals the structural breakdown of the closed orbit. Because the algorithm slowly leaks Hamiltonian energy, the multidimensional phase topology is pulled into a chaotic inward spiral, visually proving its non-symplectic, dissipative nature.</p>
+        </div>
+
+        <div class="card" style="padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <h3 style="color: #2980b9; font-size: 1.1em;">Test III: The Spatial Error Floor</h3>
+            <img src="/results/rk4/viz_3_floor.png" alt="Error Floor" style="width: 100%; border-radius: 4px;">
+            <p style="font-size: 0.9em; margin-top: 15px; line-height: 1.5;"><strong>Analysis:</strong> By sweeping low CFL values in the safe asymptotic regime $[0.05 \dots 0.4]$, the empirical slope flatlines at exactly $0.00$. The $L_2$ error norm is locked at $1.853 \times 10^{-9}$. The temporal truncation error of RK4 is so microscopic that the algorithm measures only the residual spatial discretization error of the $Q_4$ grid.</p>
+        </div>
+
+        <div class="card" style="padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <h3 style="color: #2980b9; font-size: 1.1em;">Test IV: The Convergence Paradox</h3>
+            <img src="/results/rk4/viz_4_convergence.png" alt="True Convergence" style="width: 100%; border-radius: 4px;">
+            <p style="font-size: 0.9em; margin-top: 15px; line-height: 1.5;"><strong>Analysis:</strong> Attempting to unmask the theoretical slope of $4.0$ by pushing the time step to the limit ($CFL = 2.8$) resulted in an apparent slope of $445.96$. This is not truncation error; it is exponential amplification. The solver violates the absolute stability limits of the differential operator before the temporal error can ever cross the $10^{-9}$ threshold, proving the extreme bounds of the architecture.</p>
+        </div>
+
+    </div>
+{% endblock %}

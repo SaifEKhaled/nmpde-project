@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NMPDE Research | SaifEldeen Abdelmohsen</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Roboto+Mono:wght@300;400;700&display=swap');
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #0b0f19; /* Deep HPC Blue/Black */
+            color: #e2e8f0;
+            font-family: 'Roboto Mono', monospace;
+            overflow: hidden; /* Prevent scrolling on landing page */
+        }
+
+        /* The Canvas Background */
+        #mesh-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            opacity: 0.4;
+        }
+
+        /* Content Overlay */
+        .content-wrapper {
+            position: relative;
+            z-index: 2;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            text-align: center;
+            padding: 0 20px;
+            background: radial-gradient(circle, rgba(11,15,25,0.2) 0%, rgba(11,15,25,0.9) 100%);
+        }
+
+        h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: 4rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            letter-spacing: 2px;
+            color: #ffffff;
+            opacity: 0;
+            animation: fadeUp 1.5s ease-out 0.5s forwards;
+        }
+
+        h2 {
+            font-size: 1.2rem;
+            font-weight: 300;
+            color: #64748b;
+            margin-bottom: 40px;
+            opacity: 0;
+            animation: fadeUp 1.5s ease-out 1s forwards;
+        }
+
+        .bio-box {
+            max-width: 700px;
+            background: rgba(30, 41, 59, 0.7);
+            border-left: 4px solid #38bdf8;
+            padding: 30px;
+            border-radius: 4px;
+            backdrop-filter: blur(10px);
+            opacity: 0;
+            animation: fadeUp 1.5s ease-out 1.5s forwards;
+            line-height: 1.6;
+        }
+
+        .bio-box p { margin: 0 0 15px 0; }
+        .bio-box p:last-child { margin: 0; }
+
+        .enter-btn {
+            margin-top: 40px;
+            padding: 12px 30px;
+            font-size: 1.1rem;
+            color: #0b0f19;
+            background-color: #38bdf8;
+            border: none;
+            border-radius: 2px;
+            cursor: pointer;
+            text-decoration: none;
+            font-family: 'Roboto Mono', monospace;
+            font-weight: 700;
+            transition: all 0.3s ease;
+            opacity: 0;
+            animation: fadeUp 1.5s ease-out 2s forwards;
+            box-shadow: 0 0 15px rgba(56, 189, 248, 0.4);
+        }
+
+        .enter-btn:hover {
+            background-color: #bae6fd;
+            transform: translateY(-2px);
+            box-shadow: 0 0 25px rgba(56, 189, 248, 0.6);
+        }
+
+        /* Animations */
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="mesh-canvas"></canvas>
+
+    <div class="content-wrapper">
+        <h1>Matrix-Free SIMD Engine</h1>
+        <h2>High-Performance Q4 Spectral Wave Equation Solver</h2>
+        
+        <div class="bio-box">
+            <p><strong>SaifEldeen Abdelmohsen</strong><br>
+            Master of Science in High Performance Computing Engineering<br>
+            Politecnico di Milano</p>
+            <p style="font-size: 0.9em; color: #94a3b8;">
+            Specializing in scalable data engineering, parallel computing, and numerical PDE solvers. This interactive dashboard presents a comprehensive scalability study and architectural validation of a custom C++ MPI wave engine.
+            </p>
+        </div>
+
+        <a href="/leapfrog" class="enter-btn">Initialize Dashboard >_</a>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('mesh-canvas');
+        const ctx = canvas.getContext('2d');
+        
+        let width, height;
+        let time = 0;
+
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        function drawMesh() {
+            ctx.clearRect(0, 0, width, height);
+            ctx.strokeStyle = 'rgba(56, 189, 248, 0.15)'; // Academic Blue
+            ctx.lineWidth = 1;
+
+            const spacing = 40; // Grid spacing
+            const cols = Math.floor(width / spacing);
+            const rows = Math.floor(height / spacing);
+
+            // Calculate points
+            const points = [];
+            for(let y = 0; y <= rows; y++) {
+                points[y] = [];
+                for(let x = 0; x <= cols; x++) {
+                    // This is a 2D wave equation mathematical approximation!
+                    const waveX = Math.sin((x * 0.2) + time) * 15;
+                    const waveY = Math.cos((y * 0.2) + time) * 15;
+                    points[y][x] = {
+                        px: x * spacing + waveX,
+                        py: y * spacing + waveY
+                    };
+                }
+            }
+
+            // Draw horizontal lines
+            for(let y = 0; y <= rows; y++) {
+                ctx.beginPath();
+                for(let x = 0; x <= cols; x++) {
+                    if(x === 0) ctx.moveTo(points[y][x].px, points[y][x].py);
+                    else ctx.lineTo(points[y][x].px, points[y][x].py);
+                }
+                ctx.stroke();
+            }
+
+            // Draw vertical lines
+            for(let x = 0; x <= cols; x++) {
+                ctx.beginPath();
+                for(let y = 0; y <= rows; y++) {
+                    if(y === 0) ctx.moveTo(points[y][x].px, points[y][x].py);
+                    else ctx.lineTo(points[y][x].px, points[y][x].py);
+                }
+                ctx.stroke();
+            }
+
+            time += 0.02; // Speed of the wave
+            requestAnimationFrame(drawMesh);
+        }
+
+        drawMesh();
+    </script>
+</body>
+</html>

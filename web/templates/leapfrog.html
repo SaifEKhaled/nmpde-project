@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Explicit Leapfrog Integration{% endblock %}
+{% block content %}
+    <h1 style="border-bottom: 2px solid #e74c3c; padding-bottom: 10px;">Methodology I: Explicit Leapfrog</h1>
+    
+    <h2 class="section-title">1. Mathematical Discretization</h2>
+    <p>The standard 2D scalar wave equation is governed by the continuous partial differential equation:</p>
+    <p>$$ \frac{\partial^2 u}{\partial t^2} - c^2 \Delta u = f(\mathbf{x}, t) \quad \text{in } \Omega \times (0, T] $$</p>
+    <p>By applying the Galerkin Finite Element Method (FEM) using $Q_4$ spectral shape functions, we map the continuous domain into a semi-discrete system of ordinary differential equations. This yields the global matrix formulation:</p>
+    <p>$$ M \mathbf{\ddot{u}}(t) + K \mathbf{u}(t) = \mathbf{F}(t) $$</p>
+    <p>where $M$ is the global mass matrix and $K$ is the stiffness matrix (Laplacian operator). To integrate this system through time without the prohibitive computational overhead of implicit solvers, we selected the <strong>Explicit Leapfrog</strong> (Störmer-Verlet) method. Approximating the second derivative via a central difference scheme yields our core C++ update rule:</p>
+    <p>$$ \mathbf{u}^{n+1} = 2\mathbf{u}^n - \mathbf{u}^{n-1} - \Delta t^2 M^{-1}K \mathbf{u}^n $$</p>
+
+    <h2 class="section-title">2. Architectural Approach: Why Leapfrog?</h2>
+    <p>In High-Performance Computing, numerical dissipation—where a solver artificially drains energy from the system to remain stable—is a critical flaw for acoustic and electromagnetic wave propagation. We chose Leapfrog specifically because it is a <strong>Geometric Numerical Integrator</strong>.</p>
+    
+    <div style="background: #fff5f5; padding: 25px; border-radius: 8px; margin: 20px 0; font-family: 'Georgia', serif; border-left: 4px solid #c0392b;">
+        <p><strong>The Symplectic Mandate:</strong> The physical wave equation is a Hamiltonian system, meaning its total energy (Kinetic + Potential) must remain constant. The Leapfrog method is <em>symplectic</em>; it preserves the differential 2-form $dp \wedge dq$ of the phase space geometry. While its local truncation error is only $\mathcal{O}(\Delta t^2)$, its structural preservation guarantees that the numerical energy will oscillate around the true energy without ever drifting to infinity or collapsing to zero over infinite time horizons.</p>
+    </div>
+
+    <h2 class="section-title">3. Empirical Validation Suite</h2>
+    <p>To rigorously prove the stability and accuracy of the C++ implementation, the engine was subjected to four distinct stress tests.</p>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 30px;">
+        
+        <div class="card" style="padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <h3 style="color: #c0392b; font-size: 1.1em;">Test I: Hamiltonian Conservation</h3>
+            <img src="/results/leapfrog/viz_1_energy.png" alt="Energy Conservation" style="width: 100%; border-radius: 4px;">
+            <p style="font-size: 0.9em; margin-top: 15px; line-height: 1.5;"><strong>Analysis:</strong> The simulation was executed for $T=10.0s$ at a stable Courant number ($CFL = 0.5$). As expected of a 2nd-order symplectic method, the relative energy $E_t/E_0$ exhibits jagged, high-frequency oscillations. Crucially, however, the phase envelope is strictly bounded, proving zero numerical dissipation.</p>
+        </div>
+
+        <div class="card" style="padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <h3 style="color: #c0392b; font-size: 1.1em;">Test II: Phase Space Topology</h3>
+            <img src="/results/leapfrog/viz_2_phase.png" alt="Phase Topology" style="width: 100%; border-radius: 4px;">
+            <p style="font-size: 0.9em; margin-top: 15px; line-height: 1.5;"><strong>Analysis:</strong> To visualize the multidimensional phase space, we utilized <em>Takens' Delay Embedding Theorem</em>, plotting $E(t)$ against $E(t + 5\Delta t)$. The resulting "chaotic attractor" is perfectly enclosed. If the method were non-symplectic, this topology would spiral outward or collapse entirely.</p>
+        </div>
+
+        <div class="card" style="padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <h3 style="color: #c0392b; font-size: 1.1em;">Test III: Temporal Convergence</h3>
+            <img src="/results/leapfrog/viz_3_convergence.png" alt="Convergence Order" style="width: 100%; border-radius: 4px;">
+            <p style="font-size: 0.9em; margin-top: 15px; line-height: 1.5;"><strong>Analysis:</strong> By systematically refining the time step, we mapped the $L_2$ error norm. The log-log linear regression yields an empirical slope of exactly 2.00, achieving perfect mathematical alignment with the theoretical $\mathcal{O}(\Delta t^2)$ convergence rate of the Störmer-Verlet scheme.</p>
+        </div>
+
+        <div class="card" style="padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <h3 style="color: #c0392b; font-size: 1.1em;">Test IV: The CFL Limit</h3>
+            <img src="/results/leapfrog/viz_4_cfl.png" alt="CFL Explosion" style="width: 100%; border-radius: 4px;">
+            <p style="font-size: 0.9em; margin-top: 15px; line-height: 1.5;"><strong>Analysis:</strong> The method's primary weakness is its conditional stability. By pushing the parameter to $CFL = 1.5$, the wave propagation speed exceeded the maximum stable grid velocity $c \frac{\Delta t}{\Delta x} > 1$. The amplification matrix eigenvalues exceeded unity, resulting in immediate, exponential numerical explosion ($10^{91}$ Joules).</p>
+        </div>
+
+    </div>
+{% endblock %}

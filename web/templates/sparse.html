@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}HPC Architecture{% endblock %}
+{% block content %}
+    <h1 style="border-bottom: 2px solid #27ae60; padding-bottom: 10px;">Methodology III: SIMD Architecture vs. Memory Walls</h1>
+    
+    <h2 class="section-title">1. Linear Algebra Backend & The Von Neumann Bottleneck</h2>
+    <p>In standard computational physics, solving the explicit update rule requires inverting the Mass Matrix $M$. Traditionally, this is achieved by assembling local integrals into a global <code>TrilinosWrappers::SparseMatrix</code> utilizing the Compressed Row Storage (CRS) format. The symmetric positive-definite system is then solved using the <strong>Conjugate Gradient (CG)</strong> method.</p>
+    <p>While mathematically robust, this legacy approach triggers a massive hardware limitation: <strong>The Von Neumann Bottleneck</strong>. Modern CPU execution units idle while waiting for gigabytes of CRS arrays (values, column indices, row pointers) to travel across the limited bandwidth of the memory bus.</p>
+
+    <h2 class="section-title">2. The Matrix-Free SIMD Solution</h2>
+    <p>To bypass RAM latency, this engine implements a <strong>Matrix-Free Architecture</strong>. Instead of explicitly building and querying a global CRS matrix, the engine computes the action of the operator ($M\mathbf{x}$ or $K\mathbf{x}$) <em>on-the-fly</em> during every CG iteration. By utilizing Advanced Vector Extensions (AVX-512) for SIMD vectorization over quadrature points, the algorithm trades expensive RAM fetches for dense, cache-resident arithmetic operations.</p>
+
+    <h2 class="section-title">3. Empirical Hardware Profiling</h2>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 30px;">
+        
+        <div class="card" style="padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <h3 style="color: #27ae60; font-size: 1.1em;">Test I: The L3 Cache Sweet Spot</h3>
+            <img src="/results/sparse/viz_1_cache.png" alt="Cache Sweet Spot" style="width: 100%; border-radius: 4px;">
+            <p style="font-size: 0.9em; margin-top: 15px; line-height: 1.5;"><strong>Analysis:</strong> At lower resolutions, the traditional Sparse Matrix achieves <strong>3.42 MDoPS</strong>, closely matching the Matrix-Free throughput of <strong>3.46 MDoPS</strong>. This occurs because the <em>entire</em> global matrix footprint is small enough to fit inside the CPU's L3 hardware cache. Within this cache, memory latency is effectively zero, allowing CRS matrix-vector multiplication to run at peak efficiency.</p>
+        </div>
+
+        <div class="card" style="padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <h3 style="color: #27ae60; font-size: 1.1em;">Test II: The Memory Wall</h3>
+            <img src="/results/sparse/viz_2_throughput.png" alt="Memory Wall" style="width: 100%; border-radius: 4px;">
+            <p style="font-size: 0.9em; margin-top: 15px; line-height: 1.5;"><strong>Analysis:</strong> As Degrees of Freedom (DoFs) scale beyond the $2.5 \times 10^4$ L3 capacity limit, the Sparse throughput violently collapses from a peak of ~4.2 MDoPS down to <strong>0.6 MDoPS</strong> as it hits the physical RAM bandwidth wall. Conversely, the Matrix-Free engine maintains a flat, compute-bound throughput of nearly <strong>4.0 MDoPS</strong> regardless of grid scale.</p>
+        </div>
+
+        <div class="card" style="padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <h3 style="color: #27ae60; font-size: 1.1em;">Test III: Asymptotic RAM Footprint</h3>
+            <img src="/results/sparse/viz_3_ram.png" alt="RAM Scaling" style="width: 100%; border-radius: 4px;">
+            <p style="font-size: 0.9em; margin-top: 15px; line-height: 1.5;"><strong>Analysis:</strong> By ~60,000 DoFs, the CRS Sparse Matrix requires roughly <strong>60 Megabytes</strong> of memory, scaling super-linearly $\mathcal{O}(N \log N)$ in 2D. The Matrix-Free method stores only the 1D solution vectors, requiring less than <strong>1 Megabyte</strong> for the exact same resolution ($\mathcal{O}(N)$ scaling).</p>
+        </div>
+
+        <div class="card" style="padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <h3 style="color: #27ae60; font-size: 1.1em;">Test IV: Amdahl's Law (MPI Scaling)</h3>
+            <img src="/results/sparse/viz_4_scaling.png" alt="MPI Scaling" style="width: 100%; border-radius: 4px;">
+            <p style="font-size: 0.9em; margin-top: 15px; line-height: 1.5;"><strong>Analysis:</strong> Strong scaling across MPI ranks reveals a massive <strong>190% super-linear efficiency</strong> at 4 cores. This anomaly occurs when domain decomposition slices the grid perfectly into L2 cache-sized chunks. Pushing to 8 cores, efficiency drops to <strong>85%</strong> as the MPI communication overhead of boundary synchronization begins to dominate the arithmetic compute time.</p>
+        </div>
+
+    </div>
+{% endblock %}

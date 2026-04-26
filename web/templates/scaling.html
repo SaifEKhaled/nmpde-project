@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}HPC Scalability{% endblock %}
+{% block content %}
+    <h1 style="border-bottom: 2px solid #8e44ad; padding-bottom: 10px;">Methodology IV: Cluster Profiling & MPI Scalability</h1>
+    
+    <h2 class="section-title">1. Strong Scaling on a 20-Core Architecture</h2>
+    <p>To evaluate the High-Performance Computing (HPC) viability of the Matrix-Free engine, the application was subjected to a <strong>Strong Scaling</strong> benchmark on a 20-core workstation. In this paradigm, the global problem size (Degrees of Freedom) is held constant while the number of MPI execution ranks $N$ is systematically increased to 16.</p>
+    <p>Theoretical performance is dictated by Amdahl's Law, which states that maximum speedup is bottlenecked by the strictly serial portion of the code $1 - p$:</p>
+    <p>$$ S(N) = \frac{1}{(1 - p) + \frac{p}{N}} $$</p>
+
+    <h2 class="section-title">2. Architectural Strategy: Explicit Matrix-Free vs. Implicit Solvers</h2>
+    <p>While standard finite element implementations rely on implicit time-stepping (Theta/Newmark) to ensure unconditional stability, they require solving massive global linear systems $(\mathbf{M} + \Delta t^2 \mathbf{K}) \mathbf{x} = \mathbf{b}$ at every step. This involves high-latency RAM access for sparse matrix-vector products.</p>
+    
+    <div style="background: #fdf2ff; padding: 25px; border-radius: 8px; margin: 20px 0; font-family: 'Georgia', serif; border-left: 4px solid #8e44ad;">
+        <p><strong>The HPC Advantage:</strong> By choosing an explicit Leapfrog scheme, we isolate the Mass Matrix $\mathbf{M}$. We then utilized a <strong>Matrix-Free Conjugate Gradient (CG)</strong> solver to invert $\mathbf{M}$ iteratively. By trading global assembly for on-the-fly SIMD vectorization, we bypass the memory wall entirely, allowing the solver to scale much more efficiently across MPI subdomains compared to traditional implicit sparse solvers.</p>
+    </div>
+
+    <h2 class="section-title">3. Empirical MPI Scalability Results</h2>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 30px;">
+        
+        <div class="card" style="padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <h3 style="color: #8e44ad; font-size: 1.1em;">Test I: Real-World Strong Scaling</h3>
+            <img src="/results/scaling/viz_1_time.png" alt="Wall Time" style="width: 100%; border-radius: 4px;">
+            <p style="font-size: 0.9em; margin-top: 15px; line-height: 1.5;"><strong>Analysis:</strong> Running on the 20-core host, we observed a drastic reduction in wall-clock time as ranks increased. The transition from serial execution to 4 MPI ranks shows the most significant gain, while the curve begins to follow the Amdahl asymptotic limit beyond 8 ranks.</p>
+        </div>
+
+        <div class="card" style="padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <h3 style="color: #8e44ad; font-size: 1.1em;">Test II: Speedup & Parallel Overhead</h3>
+            <img src="/results/scaling/viz_2_speedup.png" alt="Speedup" style="width: 100%; border-radius: 4px;">
+            <p style="font-size: 0.9em; margin-top: 15px; line-height: 1.5;"><strong>Analysis:</strong> The empirical speedup factor deviates from the ideal $S=N$ line as rank counts grow. This represents the "Parallel Tax"—the time spent communicating ghost-nodes across the MPI subdomains via the network bus, which eventually begins to compete with the compute time.</p>
+        </div>
+
+        <div class="card" style="padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <h3 style="color: #8e44ad; font-size: 1.1em;">Test III: The 190% Super-Linear Spike</h3>
+            <img src="/results/scaling/viz_3_efficiency.png" alt="Efficiency" style="width: 100%; border-radius: 4px;">
+            <p style="font-size: 0.9em; margin-top: 15px; line-height: 1.5;"><strong>Analysis:</strong> A unique HPC phenomenon: Parallel Efficiency peaks at nearly 200%. This is the "Cache-Size Effect." At 4 MPI ranks, the local subdomain size fits entirely within the L3 hardware cache, eliminating standard RAM latency and causing a massive non-linear performance jump.</p>
+        </div>
+
+        <div class="card" style="padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <h3 style="color: #8e44ad; font-size: 1.1em;">Test IV: Compute vs. Communication</h3>
+            <img src="/results/scaling/viz_4_profile.png" alt="Hardware Profile" style="width: 100%; border-radius: 4px;">
+            <p style="font-size: 0.9em; margin-top: 15px; line-height: 1.5;"><strong>Analysis:</strong> This hardware profile visualizes the core struggle of parallel computing. While the time spent on SIMD arithmetic (blue) scales perfectly, the MPI synchronization overhead (red) grows with rank count, eventually dictating the final scalability limit of the workstation.</p>
+        </div>
+
+    </div>
+{% endblock %}

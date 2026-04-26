@@ -312,6 +312,7 @@ namespace Step48
     prm.declare_entry("Global refinement", "6", Patterns::Integer(1));
     prm.declare_entry("Time stepping scheme", "ExplicitLeapfrog", Patterns::Selection("ExplicitLeapfrog|RungeKutta4|ThetaMethod"));
     prm.declare_entry("Theta parameter", "0.5", Patterns::Double(0.0, 1.0));
+    prm.declare_entry("Assembly Method", "MatrixFree", Patterns::Selection("MatrixFree|SparseMatrix"));
   }
 
   template <int dim>
@@ -326,6 +327,7 @@ namespace Step48
     else if (s == "RungeKutta4") scheme = TimeSteppingScheme::RungeKutta4;
     else if (s == "ThetaMethod") scheme = TimeSteppingScheme::ThetaMethod;
     theta_param = prm.get_double("Theta parameter");
+    use_matrix_free = (prm.get("Assembly Method") == "MatrixFree");
   }
 
   // --- NEW: Sparse Matrix Implementation ---
@@ -425,6 +427,7 @@ namespace Step48
     data_out.add_data_vector(solution, "solution"); data_out.build_patches(mapping);
     data_out.write_vtu_with_pvtu_record("../results/", "solution", step_num, MPI_COMM_WORLD, 3);
     solution.zero_out_ghost_values();
+    pcout << "PHASE_SPACE: " << solution.l2_norm() << ", " << velocity.l2_norm() << std::endl;
   }
 
   template <int dim>

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}Dashboard{% endblock %} | NMPDE Research</title>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script>
+        MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Georgia&family=Roboto+Mono:wght@300;400;700&display=swap');
+        
+        body { font-family: 'Georgia', serif; margin: 0; display: flex; background-color: #f4f6f8; color: #2c3e50; height: 100vh; overflow: hidden; }
+        
+        /* The Sidebar */
+        .sidebar { width: 260px; background-color: #0b0f19; color: white; padding-top: 30px; display: flex; flex-direction: column; }
+        .sidebar h2 { text-align: center; font-size: 1.2em; border-bottom: 1px solid #1e293b; padding-bottom: 20px; margin: 0 20px 20px; font-family: 'Roboto Mono', monospace; color: #38bdf8;}
+        .sidebar a { display: block; color: #94a3b8; padding: 15px 25px; text-decoration: none; font-size: 1.05em; transition: 0.2s; border-left: 3px solid transparent;}
+        .sidebar a:hover { background-color: #1e293b; color: white; border-left: 3px solid #38bdf8;}
+        .sidebar a.active { background-color: #1e293b; color: #38bdf8; border-left: 3px solid #38bdf8; font-weight: bold;}
+        .sidebar-footer { margin-top: auto; padding: 20px; text-align: center; font-size: 0.8em; color: #475569; font-family: 'Roboto Mono', monospace;}
+
+        /* The Content Area */
+        .content { flex-grow: 1; padding: 50px; overflow-y: auto; }
+        .card { background: white; padding: 50px; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); border-top: 4px solid #38bdf8; max-width: 900px; margin: 0 auto; }
+        
+        h1 { color: #0b0f19; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; font-family: 'Roboto Mono', monospace; }
+        h2.section-title { color: #0284c7; margin-top: 40px; font-size: 1.4em; }
+        img { max-width: 100%; border: 1px solid #e2e8f0; border-radius: 6px; margin-top: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        p { line-height: 1.7; font-size: 1.1em; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h2>NMPDE Engine</h2>
+        <a href="/" {% if request.url.path == '/' %}class="active"{% endif %}>[0] Home</a>
+        <a href="/leapfrog" {% if request.url.path == '/leapfrog' %}class="active"{% endif %}>[1] Explicit Leapfrog</a>
+        <a href="/rk4" {% if request.url.path == '/rk4' %}class="active"{% endif %}>[2] Runge-Kutta 4</a>
+        <a href="/sparse" {% if request.url.path == '/sparse' %}class="active"{% endif %}>[3] Sparse Matrix Baseline</a>
+        <a href="/scaling" {% if request.url.path == '/scaling' %}class="active"{% endif %}>[4] HPC Scalability</a>
+        <!-- <a href="/visualization" {% if request.url.path == '/visualization' %}class="active"{% endif %}>[5] 3D Paraview</a> -->
+        <div class="sidebar-footer">SaifEldeen Abdelmohsen<br>Politecnico di Milano</div>
+    </div>
+    
+    <div class="content">
+        <div class="card">
+            {% block content %}{% endblock %}
+        </div>
+    </div>
+</body>
+</html>

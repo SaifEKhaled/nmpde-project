@@ -1,8 +1,6 @@
 # Parameters for the Matrix-Free Wave Equation
-set Final time             = 0.5
-set CFL number             = 0.05
-set Output frequency       = 150
-set Global refinement = 6
-  set Time stepping scheme = RungeKutta4
-set Theta parameter        = 0.5  # This is Crank-Nicolson
-set CFL number             = 1.0  # Raise this! Try 1.0 or even 2.0
+set Time stepping scheme = ExplicitLeapfrog
+set Global refinement = 4
+set CFL number = 0.2
+set Final time = 5.0
+set Output frequency = 2
