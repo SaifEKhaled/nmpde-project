@@ -1,0 +1,9 @@
+set Final time    = 2.0
+set Wave speed    = 1.0
+set Refinements   = 5
+set FE degree     = 1
+set Scheme        = RK4
+set Theta         = 0.5
+set Time step     = 0.002
+set Output every  = 0
+set Output dir    = /home/safsofxd/PolimiProjects/NMPDE-Project/results

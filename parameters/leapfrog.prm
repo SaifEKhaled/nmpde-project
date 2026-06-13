@@ -1,0 +1,11 @@
+# Leapfrog (Stomer-Verlet): 2nd-order, symplectic, explicit
+# CFL at ref=5: dt_cfl ~ 0.022; use dt=0.01 (CFL=0.45, safe)
+set Final time    = 1.0
+set Wave speed    = 1.0
+set Refinements   = 5
+set FE degree     = 1
+set Scheme        = Leapfrog
+set Theta         = 0.5
+set Time step     = 0.01
+set Output every  = 10
+set Output dir    = ../results

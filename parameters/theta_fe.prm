@@ -1,0 +1,11 @@
+# Forward Euler: theta=0.0, explicit
+# CFL limit at ref=5: dt_cfl = (1/32)/(1*sqrt(2)) ~ 0.022; use dt=0.005 (CFL=0.23)
+set Final time    = 1.0
+set Wave speed    = 1.0
+set Refinements   = 5
+set FE degree     = 1
+set Scheme        = FE
+set Theta         = 0.0
+set Time step     = 0.005
+set Output every  = 0
+set Output dir    = ../results

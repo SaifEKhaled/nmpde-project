@@ -1,0 +1,10 @@
+# Crank-Nicolson: theta=0.5, 2nd-order, unconditionally stable, energy-conserving
+set Final time    = 1.0
+set Wave speed    = 1.0
+set Refinements   = 5
+set FE degree     = 1
+set Scheme        = CN
+set Theta         = 0.5
+set Time step     = 0.01
+set Output every  = 10
+set Output dir    = ../results
