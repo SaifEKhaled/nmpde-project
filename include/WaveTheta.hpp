@@ -117,11 +117,32 @@ namespace WaveSolver {
     TrilinosWrappers::MPI::Vector rhs(Base::locally_owned_dofs, Base::mpi_comm);
     Base::mass_matrix.vmult(rhs, u_pred);
 
+    if (Base::prm.use_mms) {
+      // Newmark RHS source contribution: dt^2 * beta * M * f(t^{n+1})
+      TrilinosWrappers::MPI::Vector f_nodal(Base::locally_owned_dofs, Base::mpi_comm);
+      VectorTools::interpolate(Base::dof_handler,
+        WaveExact::MMSSource<dim>(Base::prm.wave_speed, Base::time + dt_), f_nodal);
+
+      TrilinosWrappers::MPI::Vector Mf(Base::locally_owned_dofs, Base::mpi_comm);
+      Base::mass_matrix.vmult(Mf, f_nodal);
+
+      rhs.add(dt_ * dt_ * beta_, Mf);
+    }
+
     // ── Apply Dirichlet BCs to system and RHS ─────────────
     std::map<types::global_dof_index, double> bv;
-    VectorTools::interpolate_boundary_values(
-      Base::dof_handler, 0,
-      WaveExact::ExactSolution<dim>(Base::prm.wave_speed, Base::time + dt_), bv);
+    if (Base::prm.use_mms)
+      VectorTools::interpolate_boundary_values(
+        Base::dof_handler, 0,
+        WaveExact::MMSExactSolution<dim>(
+          Base::prm.wave_speed,
+          Base::time + dt_), bv);
+    else
+      VectorTools::interpolate_boundary_values(
+        Base::dof_handler, 0,
+        WaveExact::ExactSolution<dim>(
+          Base::prm.wave_speed,
+          Base::time + dt_), bv);
 
     TrilinosWrappers::SparseMatrix sys_copy;
     sys_copy.copy_from(system_matrix_);
