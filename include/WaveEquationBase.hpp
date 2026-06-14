@@ -1,17 +1,6 @@
 #pragma once
 /* ============================================================
  * WaveEquationBase.hpp
- * Abstract base class for the 2-D wave equation FEM solver.
- *
- * Provides:
- *   - Mesh creation & DoF setup
- *   - Mass / stiffness matrix assembly
- *   - M*acc = -c^2*K*u  acceleration solve
- *   - Energy, L2 error, VTU output, CSV logging
- *
- * Derived classes (WaveTheta, WaveLeapfrog, WaveRK4) implement
- * advance_one_step() and are responsible for maintaining
- * solution / velocity / acceleration vectors.
  * ============================================================ */
 
 #include <deal.II/base/utilities.h>
@@ -61,35 +50,29 @@ namespace WaveSolver {
   public:
     WaveEquationBase(const Parameters &prm);
     virtual ~WaveEquationBase() = default;
-
-    // Full time-integration loop — calls advance_one_step() each step
     void run();
 
   protected:
-    // ── Override in derived classes ──────────────────────────
     virtual void advance_one_step() = 0;
-    // Called once after initial conditions are set
     virtual void init_scheme_state() {}
-    // Human-readable scheme name for console output
     virtual std::string scheme_name() const = 0;
 
-    // ── Helpers available to derived classes ────────────────
     void make_grid();
     void setup_system();
     void assemble_matrices();
 
-    // Solve M*acc = -c^2 * K * u
     void compute_acceleration(TrilinosWrappers::MPI::Vector &acc,
                                const TrilinosWrappers::MPI::Vector &u) const;
-
-    // Zero the boundary DOFs of v (exact = 0 for our test case)
     void apply_dirichlet_bc(TrilinosWrappers::MPI::Vector &v, double t) const;
 
-    double compute_energy()   const;
-    double compute_l2_error(double t) const;
-    void   output_vtu(unsigned int step) const;
+    double compute_energy()            const;
+    double compute_l2_error (double t) const;
+    double compute_h1_error (double t) const;   // NEW: H1 seminorm
+    void   output_vtu(unsigned int step)  const;
 
-    // ── Data ────────────────────────────────────────────────
+    // MMS: add source term to RHS vector (called by WaveTheta)
+    void add_mms_source(TrilinosWrappers::MPI::Vector &rhs, double t) const;
+
     const Parameters &prm;
     ConditionalOStream pcout;
     MPI_Comm           mpi_comm;
@@ -106,13 +89,16 @@ namespace WaveSolver {
     TrilinosWrappers::SparseMatrix mass_matrix;
     TrilinosWrappers::SparseMatrix stiffness_matrix;
 
-    TrilinosWrappers::MPI::Vector solution;      // u^n
-    TrilinosWrappers::MPI::Vector velocity;      // du/dt^n
-    TrilinosWrappers::MPI::Vector acceleration;  // d²u/dt²^n  (carried between steps)
+    TrilinosWrappers::MPI::Vector solution;
+    TrilinosWrappers::MPI::Vector velocity;
+    TrilinosWrappers::MPI::Vector acceleration;
 
     double       time;
     double       dt;
     unsigned int step_number;
+
+    // Profiling
+    mutable TimerOutput timer_output;
 
   private:
     std::ofstream energy_log;
