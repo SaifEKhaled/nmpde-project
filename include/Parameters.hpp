@@ -1,13 +1,11 @@
 #pragma once
-/* ============================================================
- * Parameters.hpp
- * ============================================================ */
 #include <deal.II/base/parameter_handler.h>
 #include <string>
 
 struct Parameters {
   double       final_time     = 1.0;
   double       wave_speed     = 1.0;
+  unsigned int dimension       = 2;       // 2 or 3
   unsigned int refinements    = 5;
   unsigned int fe_degree      = 1;
   std::string  scheme         = "CN";     // CN | BE | FE | Leapfrog | RK4
@@ -21,6 +19,7 @@ struct Parameters {
   void declare(dealii::ParameterHandler &prm) {
     prm.declare_entry("Final time",   "1.0",       dealii::Patterns::Double(0));
     prm.declare_entry("Wave speed",   "1.0",       dealii::Patterns::Double(0));
+    prm.declare_entry("Dimension",    "2",         dealii::Patterns::Integer(2,3));
     prm.declare_entry("Refinements",  "5",         dealii::Patterns::Integer(1));
     prm.declare_entry("FE degree",    "1",         dealii::Patterns::Integer(1));
     prm.declare_entry("Scheme",       "CN",
@@ -36,6 +35,7 @@ struct Parameters {
   void parse(dealii::ParameterHandler &prm) {
     final_time   = prm.get_double  ("Final time");
     wave_speed   = prm.get_double  ("Wave speed");
+    dimension    = prm.get_integer ("Dimension");
     refinements  = prm.get_integer ("Refinements");
     fe_degree    = prm.get_integer ("FE degree");
     scheme       = prm.get         ("Scheme");
@@ -46,7 +46,6 @@ struct Parameters {
     use_mms      = prm.get_bool    ("MMS");
     profiling    = prm.get_bool    ("Profiling");
 
-    // Map friendly names -> internal Theta scheme + theta value
     if      (scheme == "CN") { scheme = "Theta"; theta = 0.5; }
     else if (scheme == "BE") { scheme = "Theta"; theta = 1.0; }
     else if (scheme == "FE") { scheme = "Theta"; theta = 0.0; }

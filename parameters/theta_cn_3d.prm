@@ -1,0 +1,16 @@
+# Crank-Nicolson in 3D — same physics, dimension=3
+# Standing wave: u = cos(omega*t)*sin(pi*x)*sin(pi*y)*sin(pi*z)
+# omega = c*pi*sqrt(3)
+# CFL: dt <= h/(c*sqrt(3))
+set Dimension     = 3
+set Final time    = 1.0
+set Wave speed    = 1.0
+set Refinements   = 3
+set FE degree     = 1
+set Scheme        = CN
+set Theta         = 0.5
+set Time step     = 0.01
+set Output every  = 0
+set Output dir    = ../results
+set MMS           = false
+set Profiling     = false

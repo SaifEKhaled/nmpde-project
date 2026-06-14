@@ -1,4 +1,6 @@
 /* ============================================================
+ * main.cc
+ *
  * The "Scheme" field in the .prm file selects the time integrator:
  *   CN       -> Crank-Nicolson (theta=0.5, 2nd order, implicit)
  *   BE       -> Backward Euler (theta=1.0, 1st order, dissipative)
@@ -19,6 +21,23 @@
 #include <iostream>
 #include <memory>
 
+template <int dim>
+void run_solver(const Parameters &prm) {
+  std::unique_ptr<WaveSolver::WaveEquationBase<dim>> solver;
+
+  if (prm.scheme == "Theta") {
+    solver = std::make_unique<WaveSolver::WaveTheta<dim>>(prm);
+  } else if (prm.scheme == "Leapfrog") {
+    solver = std::make_unique<WaveSolver::WaveLeapfrog<dim>>(prm);
+  } else if (prm.scheme == "RK4") {
+    solver = std::make_unique<WaveSolver::WaveRK4<dim>>(prm);
+  } else {
+    throw std::runtime_error("Unknown scheme: " + prm.scheme);
+  }
+
+  solver->run();
+}
+
 int main(int argc, char **argv) {
   dealii::Utilities::MPI::MPI_InitFinalize mpi_init(
     argc, argv, dealii::numbers::invalid_unsigned_int);
@@ -33,20 +52,13 @@ int main(int argc, char **argv) {
     handler.parse_input(prm_file);
     prm.parse(handler);   // also maps CN/BE/FE -> Theta + theta value
 
-    // instantiate the requested solver
-    std::unique_ptr<WaveSolver::WaveEquationBase<2>> solver;
-
-    if (prm.scheme == "Theta") {
-      solver = std::make_unique<WaveSolver::WaveTheta<2>>(prm);
-    } else if (prm.scheme == "Leapfrog") {
-      solver = std::make_unique<WaveSolver::WaveLeapfrog<2>>(prm);
-    } else if (prm.scheme == "RK4") {
-      solver = std::make_unique<WaveSolver::WaveRK4<2>>(prm);
-    } else {
-      throw std::runtime_error("Unknown scheme: " + prm.scheme);
-    }
-
-    solver->run();
+    if (prm.dimension == 2)
+      run_solver<2>(prm);
+    else if (prm.dimension == 3)
+      run_solver<3>(prm);
+    else
+      throw std::runtime_error("Dimension must be 2 or 3, got "
+                                + std::to_string(prm.dimension));
 
   } catch (std::exception &e) {
     std::cerr << "Exception: " << e.what() << "\n";
