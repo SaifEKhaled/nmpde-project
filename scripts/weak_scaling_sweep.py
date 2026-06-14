@@ -85,50 +85,53 @@ def main():
     
     
 
+    if len(args.ranks) != len(args.refs):
+        raise SystemExit(
+            f"--ranks ({len(args.ranks)}) and --refs ({len(args.refs)}) "
+            f"must have the same length"
+        )
+
     rows = []
     prm = RESULTS / "_weak_tmp.prm"
 
-    if len(args.ranks) != len(args.refs):
-    raise SystemExit(
-        f"--ranks ({len(args.ranks)}) and --refs ({len(args.refs)}) "
-        f"must have the same length"
-    )
+    print("Weak scaling: each step should multiply both ranks and DoFs by ~4x\n")
+    print(f"  {'ranks':>5}  {'ref':>3}  {'DoFs':>8}  {'DoFs/rank':>10}")
 
-print("Weak scaling: each step should multiply both ranks and DoFs by ~4x\n")
-print(f"  {'ranks':>5}  {'ref':>3}  {'DoFs':>8}  {'DoFs/rank':>10}")
+    for nprocs, ref in zip(args.ranks, args.refs):
+        d = dofs_for_ref(ref, args.fe_degree)
+        print(f"  {nprocs:>5}  {ref:>3}  {d:>8}  {d/nprocs:>10.0f}")
 
-for nprocs, ref in zip(args.ranks, args.refs):
-    d = dofs_for_ref(ref, args.fe_degree)
-    print(f"  {nprocs:>5}  {ref:>3}  {d:>8}  {d/nprocs:>10.0f}")
+    print()
 
-print()
+    for nprocs, ref in zip(args.ranks, args.refs):
+        actual_dofs = dofs_for_ref(ref, args.fe_degree)
+        dofs_per_rank = actual_dofs / nprocs
 
-for nprocs, ref in zip(args.ranks, args.refs):
-    actual_dofs = dofs_for_ref(ref, args.fe_degree)
-    dofs_per_rank = actual_dofs / nprocs
+        write_prm(prm, args.scheme, ref, args.fe_degree,
+                  args.dt, args.T)
 
-    write_prm(prm, args.scheme, ref, args.fe_degree, args.dt, args.T)
+        print(
+            f"  ranks={nprocs:>2}  ref={ref}  DoFs={actual_dofs:>7}  "
+            f"DoFs/rank={dofs_per_rank:>8.0f} ...",
+            end=" ", flush=True
+        )
 
-    print(f"  ranks={nprocs:>2}  ref={ref}  DoFs={actual_dofs:>7}  "
-          f"DoFs/rank={dofs_per_rank:>8.0f} ...",
-          end=" ", flush=True)
+        times = []
+        for _ in range(args.repeats):
+            wall, dofs_reported = run_one(nprocs, prm)
+            times.append(wall)
 
-    times = []
-    for _ in range(args.repeats):
-        wall, dofs_reported = run_one(nprocs, prm)
-        times.append(wall)
+        best = min(times)
 
-    best = min(times)
+        print(f"runs={['%.2f' % t for t in times]} -> min={best:.2f}s")
 
-    print(f"runs={['%.2f'%t for t in times]} -> min={best:.2f}s")
-
-    rows.append({
-        "ranks":         nprocs,
-        "refinements":   ref,
-        "dofs":          dofs_reported or actual_dofs,
-        "dofs_per_rank": dofs_per_rank,
-        "wall_time":     best,
-    })
+        rows.append({
+            "ranks": nprocs,
+            "refinements": ref,
+            "dofs": dofs_reported or actual_dofs,
+            "dofs_per_rank": dofs_per_rank,
+            "wall_time": best,
+        })
 
     # Weak scaling efficiency: T(1) / T(p)  (ideal = 1.0, constant time)
     t1 = rows[0]["wall_time"]
