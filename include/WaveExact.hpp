@@ -52,6 +52,27 @@ namespace WaveExact {
       return std::cos(omega(c_) * t) * s;
     }
 
+    // grad u = cos(omega*t) * [pi*cos(pi*x)*sin(pi*y), pi*sin(pi*x)*cos(pi*y)]
+Tensor<1, dim> gradient(const Point<dim> &p, const unsigned int = 0) const override {
+  const double t = this->get_time();
+  const double ct = std::cos(omega(c_) * t);
+
+  Tensor<1, dim> g;
+
+  for (unsigned int d = 0; d < dim; ++d) {
+    double term = numbers::PI;
+
+    for (unsigned int e = 0; e < dim; ++e)
+      term *= (e == d)
+                ? std::cos(numbers::PI * p[e])
+                : std::sin(numbers::PI * p[e]);
+
+    g[d] = ct * term;
+  }
+
+  return g;
+}
+
   private:
     double c_;
   };
@@ -98,6 +119,27 @@ namespace WaveExact {
         s *= std::sin(numbers::PI * p[d]);
       return s * std::sin(numbers::PI * t);
     }
+
+    // grad u = sin(pi*t) * [pi*cos(pi*x)*sin(pi*y), pi*sin(pi*x)*cos(pi*y)]
+Tensor<1, dim> gradient(const Point<dim> &p, const unsigned int = 0) const override {
+  const double t = this->get_time();
+  const double st = std::sin(numbers::PI * t);
+
+  Tensor<1, dim> g;
+
+  for (unsigned int d = 0; d < dim; ++d) {
+    double term = numbers::PI;
+
+    for (unsigned int e = 0; e < dim; ++e)
+      term *= (e == d)
+                ? std::cos(numbers::PI * p[e])
+                : std::sin(numbers::PI * p[e]);
+
+    g[d] = st * term;
+  }
+
+  return g;
+}
   };
 
   // v_mms = pi*sin(pi*x)*sin(pi*y)*cos(pi*t)
