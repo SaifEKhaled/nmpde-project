@@ -2,16 +2,27 @@
 /* ============================================================
  * WaveExact.hpp
  *
- * Exact solution for the 2-D standing wave test case:
+ * Two test cases:
  *
- *   u(x,y,t) = cos(omega*t) * sin(pi*x) * sin(pi*y)
- *   omega     = c * pi * sqrt(2)
+ * 1. STANDING WAVE (default)
+ *    u(x,y,t) = cos(omega*t) * sin(pi*x) * sin(pi*y)
+ *    omega = c*pi*sqrt(2)
+ *    Homogeneous source f = 0.
  *
- * Satisfies:
- *   u_tt - c^2 * Delta u = 0   on (0,1)^2 x (0,T]
- *   u = 0                       on boundary (homogeneous Dirichlet)
- *   u(0)   = sin(pi*x)*sin(pi*y)
- *   u_t(0) = 0
+ * 2. MANUFACTURED SOLUTION (MMS)
+ *    u_mms(x,y,t) = sin(pi*x) * sin(pi*y) * sin(pi*t)
+ *    This does NOT satisfy the homogeneous wave equation,
+ *    so we add a source term:
+ *      f = u_tt - c^2*Delta(u)
+ *        = -pi^2*sin(pi*x)*sin(pi*y)*sin(pi*t)
+ *          + 2*c^2*pi^2*sin(pi*x)*sin(pi*y)*sin(pi*t)
+ *        = pi^2*(2*c^2 - 1)*sin(pi*x)*sin(pi*y)*sin(pi*t)
+ *    with BCs u_mms = 0 on boundary (sin(pi*0)=sin(pi*1)=0).
+ *    IC: u(0) = 0, v(0) = pi*sin(pi*x)*sin(pi*y)
+ *
+ * The MMS test is more rigorous: it verifies convergence
+ * independent of any accidental cancellation from the
+ * standing-wave symmetry.
  * ============================================================ */
 
 #include <deal.II/base/function.h>
@@ -21,10 +32,12 @@
 namespace WaveExact {
   using namespace dealii;
 
+  // ── Helpers ───────────────────────────────────────────────
   inline double omega(double c) {
     return c * numbers::PI * std::sqrt(2.0);
   }
 
+  // ── Standing wave ─────────────────────────────────────────
   template <int dim>
   class ExactSolution : public Function<dim> {
   public:
@@ -33,17 +46,16 @@ namespace WaveExact {
 
     double value(const Point<dim> &p, const unsigned int = 0) const override {
       const double t = this->get_time();
-      double spatial = 1.0;
+      double s = 1.0;
       for (unsigned int d = 0; d < dim; ++d)
-        spatial *= std::sin(numbers::PI * p[d]);
-      return std::cos(omega(c_) * t) * spatial;
+        s *= std::sin(numbers::PI * p[d]);
+      return std::cos(omega(c_) * t) * s;
     }
 
   private:
     double c_;
   };
 
-  // u_t(x,y,0) = 0  (cosine in time, zero derivative at t=0)
   template <int dim>
   class InitialVelocity : public Function<dim> {
   public:
@@ -53,8 +65,6 @@ namespace WaveExact {
     }
   };
 
-  // du/dt = -omega * sin(omega*t) * sin(pi*x) * sin(pi*y)
-  // Used to set consistent velocity BCs in WaveTheta.
   template <int dim>
   class ExactVelocity : public Function<dim> {
   public:
@@ -63,14 +73,67 @@ namespace WaveExact {
 
     double value(const Point<dim> &p, const unsigned int = 0) const override {
       const double t = this->get_time();
-      double spatial = 1.0;
+      double s = 1.0;
       for (unsigned int d = 0; d < dim; ++d)
-        spatial *= std::sin(numbers::PI * p[d]);
-      return -omega(c_) * std::sin(omega(c_) * t) * spatial;
+        s *= std::sin(numbers::PI * p[d]);
+      return -omega(c_) * std::sin(omega(c_) * t) * s;
     }
 
   private:
     double c_;
   };
 
-}
+  // ── Manufactured solution ─────────────────────────────────
+  // u_mms = sin(pi*x)*sin(pi*y)*sin(pi*t)
+  template <int dim>
+  class MMSExactSolution : public Function<dim> {
+  public:
+    MMSExactSolution(double /*c*/ = 1., double t = 0.)
+      : Function<dim>(1, t) {}
+
+    double value(const Point<dim> &p, const unsigned int = 0) const override {
+      const double t = this->get_time();
+      double s = 1.0;
+      for (unsigned int d = 0; d < dim; ++d)
+        s *= std::sin(numbers::PI * p[d]);
+      return s * std::sin(numbers::PI * t);
+    }
+  };
+
+  // v_mms = pi*sin(pi*x)*sin(pi*y)*cos(pi*t)
+  template <int dim>
+  class MMSInitialVelocity : public Function<dim> {
+  public:
+    MMSInitialVelocity() : Function<dim>(1, 0.) {}
+    double value(const Point<dim> &p, const unsigned int = 0) const override {
+      double s = 1.0;
+      for (unsigned int d = 0; d < dim; ++d)
+        s *= std::sin(numbers::PI * p[d]);
+      return numbers::PI * s;   // cos(pi*0) = 1
+    }
+  };
+
+  // Source term:  f = pi^2*(2*c^2 - 1)*sin(pi*x)*sin(pi*y)*sin(pi*t)
+  template <int dim>
+  class MMSSource : public Function<dim> {
+  public:
+    MMSSource(double c, double t = 0.)
+      : Function<dim>(1, t), c_(c) {}
+
+    double value(const Point<dim> &p, const unsigned int = 0) const override {
+      const double t = this->get_time();
+      double s = 1.0;
+      for (unsigned int d = 0; d < dim; ++d)
+        s *= std::sin(numbers::PI * p[d]);
+      // u_tt = -pi^2 * s * sin(pi*t)
+      // -c^2*Delta(u) = +2*c^2*pi^2 * s * sin(pi*t)  (in 2D)
+      const double coeff = numbers::PI * numbers::PI
+                         * (2.0 * c_ * c_ - 1.0);
+      return coeff * s * std::sin(numbers::PI * t);
+    }
+
+  private:
+    double c_;
+  };
+
+} // namespace WaveExact
