@@ -32,7 +32,7 @@ jobs:
       - name: Verify executable exists
         run: test -x build/wave_equation
 
-      - name: Crank-Nicolson test for energy conservation
+      - name: Smoke test — Crank-Nicolson (energy conservation)
         run: |
           mkdir -p results
           mpirun --allow-run-as-root --oversubscribe -np 2 \
@@ -85,6 +85,18 @@ jobs:
           print(f"OK: MMS L2 = {l2}, H1 = {h1}")
           EOF
 
+      - name: Smoke test — 3D standing wave (energy conservation)
+        run: |
+          mpirun --allow-run-as-root --oversubscribe -np 2 \
+            build/wave_equation parameters/theta_cn_3d.prm | tee cn3d.log
+          python3 - <<'EOF'
+          import re
+          log = open("cn3d.log").read()
+          er = float(re.search(r"Final E/E0:\s*([\d.eE+\-]+)", log).group(1))
+          assert abs(er - 1.0) < 1e-4, f"3D CN energy not conserved: E/E0={er}"
+          print(f"OK: 3D CN E/E0 = {er}")
+          EOF
+
       - name: Upload logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -95,6 +107,7 @@ jobs:
             rk4.log
             leapfrog.log
             mms.log
+            cn3d.log
 
   python-checks:
     name: Python script syntax check
