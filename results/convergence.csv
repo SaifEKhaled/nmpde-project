@@ -494,3 +494,6 @@ Crank-Nicolson / Newmark (beta=0.25, energy-conserving),1,6,0.015625,0.005,4225,
 Crank-Nicolson / Newmark (beta=0.25, energy-conserving),1,7,0.0078125,0.005,16641,2.13638e-05,0.00419244,1,11.7671,0
 Crank-Nicolson / Newmark (beta=0.25, energy-conserving),1,7,0.0078125,0.005,16641,2.13638e-05,0.00419244,1,11.3366,0
 Crank-Nicolson / Newmark (beta=0.25, energy-conserving),1,7,0.0078125,0.005,16641,2.13638e-05,0.00419244,1,11.2482,0
+Crank-Nicolson / Newmark (beta=0.25, energy-conserving),1,5,0.03125,0.01,1089,0.000723577,0.0169817,1,0.677727,0
+Crank-Nicolson / Newmark (beta=0.25, energy-conserving),1,5,0.03125,0.01,1089,0.000723577,0.0169817,1,0.779447,0
+Crank-Nicolson / Newmark (beta=0.25, energy-conserving),1,5,0.03125,0.01,1089,0.000723577,0.0169817,1,0.736964,0
