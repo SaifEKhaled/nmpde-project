@@ -7,4 +7,4 @@ set Scheme        = CN
 set Theta         = 0.5
 set Time step     = 0.01
 set Output every  = 10
-set Output dir    = ../results
+set Output dir    = /home/safsofxd/PolimiProjects/NMPDE-Project/results

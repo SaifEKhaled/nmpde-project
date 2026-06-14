@@ -1,3 +1,0 @@
-/home/safsofxd/PolimiProjects/NMPDE-Project/build/CMakeFiles/wave_equation.dir
-/home/safsofxd/PolimiProjects/NMPDE-Project/build/CMakeFiles/edit_cache.dir
-/home/safsofxd/PolimiProjects/NMPDE-Project/build/CMakeFiles/rebuild_cache.dir

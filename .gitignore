@@ -1,11 +1,8 @@
-cat > .gitignore << 'EOF'
 build/
 results/*.vtu
 results/*.pvtu
 results/_*.prm
+results/viz/
+*Zone.Identifier*
 __pycache__/
-*.Zone.Identifier
 *.pyc
-EOF
-git rm -r --cached build/
-git add .gitignore
