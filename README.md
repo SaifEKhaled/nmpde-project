@@ -275,6 +275,13 @@ one new `.hpp` file and one `else if` in the factory — the base class
 handles mesh setup, matrix assembly, energy/L2/H1 tracking, VTU output,
 profiling, and convergence logging.
 
+**2D/3D generality**: every class is templated on `dim`. The standing-wave
+exact solution generalizes to $u=\cos(\omega t)\prod_{d=1}^{\dim}\sin(\pi x_d)$
+with $\omega=c\pi\sqrt{\dim}$, and the MMS source term scales as
+$\pi^2(\dim\cdot c^2-1)$. Set `Dimension = 3` in any `.prm` file to run
+in 3D — CI verifies energy conservation (E/E0 = 1.000000) holds in both
+2D and 3D with no code changes.
+
 ---
 
 ## License
