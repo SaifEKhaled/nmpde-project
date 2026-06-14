@@ -20,7 +20,7 @@ Usage:
     python3 scripts/weak_scaling_sweep.py --ranks 1 2 4
 """
 
-import subprocess, re, argparse, csv, math
+import subprocess, re, argparse, csv
 from pathlib import Path
 
 ROOT    = Path(__file__).resolve().parent.parent
@@ -47,10 +47,10 @@ def dofs_for_ref(ref, fe_degree):
     return n_per_dim ** 2
 
 
-def best_ref_for_target_dofs(target_dofs, fe_degree, ref_range=range(3, 9)):
-    """Pick the refinement level whose DoF count is closest to target."""
-    best = min(ref_range, key=lambda r: abs(dofs_for_ref(r, fe_degree) - target_dofs))
-    return best
+# def best_ref_for_target_dofs(target_dofs, fe_degree, ref_range=range(3, 9)):
+#     """Pick the refinement level whose DoF count is closest to target."""
+#     best = min(ref_range, key=lambda r: abs(dofs_for_ref(r, fe_degree) - target_dofs))
+#     return best
 
 
 def run_one(nprocs, prm_path):
@@ -71,38 +71,64 @@ def main():
     ap.add_argument("--fe-degree",  type=int, default=1)
     ap.add_argument("--dt",         type=float, default=0.005)
     ap.add_argument("--T",          type=float, default=1.0)
-    ap.add_argument("--base-ref",   type=int, default=5,
-                    help="Refinement level for ranks=1 (baseline DoFs/rank)")
+    ap.add_argument("--refs", nargs="+", type=int, default=[4, 5, 6],
+                help="Refinement level for each rank count. In 2D, "
+                     "each +1 refinement gives ~4x DoFs, matching 4x ranks "
+                     "for an exact weak-scaling sequence (e.g. 1,4,16 ranks "
+                     "with refs 4,5,6).")
+    ap.add_argument("--repeats", type=int, default=3,
+                help="Repeat each run and report the minimum wall time "
+                     "(reduces timing noise on small problems)")
     args = ap.parse_args()
 
     RESULTS.mkdir(parents=True, exist_ok=True)
-
-    base_dofs = dofs_for_ref(args.base_ref, args.fe_degree)
-    print(f"Baseline: ref={args.base_ref} -> {base_dofs} DoFs (target DoFs/rank)\n")
+    
+    
 
     rows = []
     prm = RESULTS / "_weak_tmp.prm"
 
-    for nprocs in args.ranks:
-        target_total = base_dofs * nprocs
-        ref = best_ref_for_target_dofs(target_total, args.fe_degree)
-        actual_dofs = dofs_for_ref(ref, args.fe_degree)
-        dofs_per_rank = actual_dofs / nprocs
+    if len(args.ranks) != len(args.refs):
+    raise SystemExit(
+        f"--ranks ({len(args.ranks)}) and --refs ({len(args.refs)}) "
+        f"must have the same length"
+    )
 
-        write_prm(prm, args.scheme, ref, args.fe_degree, args.dt, args.T)
-        print(f"  ranks={nprocs:>2}  ref={ref}  DoFs={actual_dofs:>7}  "
-              f"DoFs/rank={dofs_per_rank:>8.0f} ...", end=" ", flush=True)
+print("Weak scaling: each step should multiply both ranks and DoFs by ~4x\n")
+print(f"  {'ranks':>5}  {'ref':>3}  {'DoFs':>8}  {'DoFs/rank':>10}")
 
+for nprocs, ref in zip(args.ranks, args.refs):
+    d = dofs_for_ref(ref, args.fe_degree)
+    print(f"  {nprocs:>5}  {ref:>3}  {d:>8}  {d/nprocs:>10.0f}")
+
+print()
+
+for nprocs, ref in zip(args.ranks, args.refs):
+    actual_dofs = dofs_for_ref(ref, args.fe_degree)
+    dofs_per_rank = actual_dofs / nprocs
+
+    write_prm(prm, args.scheme, ref, args.fe_degree, args.dt, args.T)
+
+    print(f"  ranks={nprocs:>2}  ref={ref}  DoFs={actual_dofs:>7}  "
+          f"DoFs/rank={dofs_per_rank:>8.0f} ...",
+          end=" ", flush=True)
+
+    times = []
+    for _ in range(args.repeats):
         wall, dofs_reported = run_one(nprocs, prm)
-        print(f"{wall:.2f}s")
+        times.append(wall)
 
-        rows.append({
-            "ranks":         nprocs,
-            "refinements":   ref,
-            "dofs":          dofs_reported or actual_dofs,
-            "dofs_per_rank": dofs_per_rank,
-            "wall_time":     wall,
-        })
+    best = min(times)
+
+    print(f"runs={['%.2f'%t for t in times]} -> min={best:.2f}s")
+
+    rows.append({
+        "ranks":         nprocs,
+        "refinements":   ref,
+        "dofs":          dofs_reported or actual_dofs,
+        "dofs_per_rank": dofs_per_rank,
+        "wall_time":     best,
+    })
 
     # Weak scaling efficiency: T(1) / T(p)  (ideal = 1.0, constant time)
     t1 = rows[0]["wall_time"]

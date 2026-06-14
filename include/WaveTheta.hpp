@@ -97,7 +97,7 @@ namespace WaveSolver {
   // ── Single time step ───────────────────────────────────────
   template <int dim>
   void WaveTheta<dim>::advance_one_step() {
-    const double c2  = Base::prm.wave_speed * Base::prm.wave_speed;
+    // const double c2  = Base::prm.wave_speed * Base::prm.wave_speed;
     const double dt_ = Base::dt;
 
     // ── Predictor ─────────────────────────────────────────
