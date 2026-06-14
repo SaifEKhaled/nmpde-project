@@ -1,7 +1,3 @@
-/* ============================================================
- * WaveEquationBase.tpp  —  included by WaveEquationBase.hpp
- * ============================================================ */
-
 #pragma once
 
 #include <filesystem>
@@ -9,7 +5,7 @@
 namespace WaveSolver {
   using namespace dealii;
 
-  // ── Constructor ────────────────────────────────────────────
+  // ── Constructor 
   template <int dim>
   WaveEquationBase<dim>::WaveEquationBase(const Parameters &prm)
     : prm(prm),
@@ -18,19 +14,23 @@ namespace WaveSolver {
       triangulation(mpi_comm),
       fe(prm.fe_degree),
       dof_handler(triangulation),
-      time(0.), dt(prm.dt), step_number(0)
+      time(0.), dt(prm.dt), step_number(0),
+      timer_output(mpi_comm, pcout, TimerOutput::never,
+                    TimerOutput::wall_times)
   {}
 
-  // ── Grid ───────────────────────────────────────────────────
+  // Grid
   template <int dim>
   void WaveEquationBase<dim>::make_grid() {
+    TimerOutput::Scope t(timer_output, "01 mesh setup");
     GridGenerator::hyper_cube(triangulation, 0., 1.);
     triangulation.refine_global(prm.refinements);
   }
 
-  // ── DoF setup ──────────────────────────────────────────────
   template <int dim>
   void WaveEquationBase<dim>::setup_system() {
+    TimerOutput::Scope t(timer_output, "01 mesh setup");
+
     dof_handler.distribute_dofs(fe);
     locally_owned_dofs = dof_handler.locally_owned_dofs();
     DoFTools::extract_locally_relevant_dofs(dof_handler, locally_relevant_dofs);
@@ -55,9 +55,10 @@ namespace WaveSolver {
     acceleration.reinit(locally_owned_dofs, mpi_comm);
   }
 
-  // ── Matrix assembly ────────────────────────────────────────
   template <int dim>
   void WaveEquationBase<dim>::assemble_matrices() {
+    TimerOutput::Scope t(timer_output, "02 assembly");
+
     QGauss<dim> quadrature(fe.degree + 1);
     FEValues<dim> fe_values(fe, quadrature,
                             update_values | update_gradients | update_JxW_values);
@@ -88,15 +89,17 @@ namespace WaveSolver {
     stiffness_matrix.compress(VectorOperation::add);
   }
 
-  // ── Dirichlet BC ───────────────────────────────────────────
   template <int dim>
   void WaveEquationBase<dim>::apply_dirichlet_bc(
     TrilinosWrappers::MPI::Vector &v, double t) const
   {
     std::map<types::global_dof_index, double> bv;
-    VectorTools::interpolate_boundary_values(
-      dof_handler, 0,
-      WaveExact::ExactSolution<dim>(prm.wave_speed, t), bv);
+    if (prm.use_mms)
+      VectorTools::interpolate_boundary_values(
+        dof_handler, 0, WaveExact::MMSExactSolution<dim>(prm.wave_speed, t), bv);
+    else
+      VectorTools::interpolate_boundary_values(
+        dof_handler, 0, WaveExact::ExactSolution<dim>(prm.wave_speed, t), bv);
 
     TrilinosWrappers::MPI::Vector result(locally_owned_dofs, mpi_comm);
     for (const auto idx : locally_owned_dofs) {
@@ -107,7 +110,24 @@ namespace WaveSolver {
     v = result;
   }
 
-  // ── Acceleration solve:  M*acc = -c^2 * K * u ─────────────
+  template <int dim>
+  void WaveEquationBase<dim>::add_mms_source(
+    TrilinosWrappers::MPI::Vector &rhs, double t) const
+  {
+    if (!prm.use_mms) return;
+
+    TrilinosWrappers::MPI::Vector f_nodal(locally_owned_dofs, mpi_comm);
+    VectorTools::interpolate(dof_handler,
+      WaveExact::MMSSource<dim>(prm.wave_speed, t), f_nodal);
+
+    TrilinosWrappers::MPI::Vector Mf(locally_owned_dofs, mpi_comm);
+    mass_matrix.vmult(Mf, f_nodal);
+
+    // rhs += dt^2 * M * f   (Newmark RHS contribution, beta absorbed by caller
+    rhs.add(1.0, Mf);
+  }
+
+  // ── Acceleration solve:  M*acc = -c^2*K*u (+ source)
   template <int dim>
   void WaveEquationBase<dim>::compute_acceleration(
     TrilinosWrappers::MPI::Vector &acc,
@@ -116,6 +136,15 @@ namespace WaveSolver {
     TrilinosWrappers::MPI::Vector rhs(locally_owned_dofs, mpi_comm);
     stiffness_matrix.vmult(rhs, u);
     rhs *= -(prm.wave_speed * prm.wave_speed);
+
+    if (prm.use_mms) {
+      TrilinosWrappers::MPI::Vector f_nodal(locally_owned_dofs, mpi_comm);
+      VectorTools::interpolate(dof_handler,
+        WaveExact::MMSSource<dim>(prm.wave_speed, time), f_nodal);
+      TrilinosWrappers::MPI::Vector Mf(locally_owned_dofs, mpi_comm);
+      mass_matrix.vmult(Mf, f_nodal);
+      rhs.add(1.0, Mf);
+    }
 
     acc = 0.;
     SolverControl sc(2000, 1e-12 * rhs.l2_norm() + 1e-14);
@@ -126,7 +155,7 @@ namespace WaveSolver {
     constraints.distribute(acc);
   }
 
-  // ── Discrete energy  E = ½(v^T M v + c^2 u^T K u) ────────
+  // ── Discrete energy  E = ½(v^T M v + c^2 u^T K u)
   template <int dim>
   double WaveEquationBase<dim>::compute_energy() const {
     TrilinosWrappers::MPI::Vector gu(locally_owned_dofs, locally_relevant_dofs, mpi_comm);
@@ -160,20 +189,52 @@ namespace WaveSolver {
   // ── L2 error against exact solution ───────────────────────
   template <int dim>
   double WaveEquationBase<dim>::compute_l2_error(double t) const {
+    TimerOutput::Scope timer(timer_output, "05 error eval");
     TrilinosWrappers::MPI::Vector gu(locally_owned_dofs, locally_relevant_dofs, mpi_comm);
     gu = solution;
     Vector<double> cell_err(triangulation.n_active_cells());
-    VectorTools::integrate_difference(
-      dof_handler, gu,
-      WaveExact::ExactSolution<dim>(prm.wave_speed, t),
-      cell_err, QGauss<dim>(fe.degree + 2), VectorTools::L2_norm);
+
+    if (prm.use_mms)
+      VectorTools::integrate_difference(
+        dof_handler, gu, WaveExact::MMSExactSolution<dim>(prm.wave_speed, t),
+        cell_err, QGauss<dim>(fe.degree + 2), VectorTools::L2_norm);
+    else
+      VectorTools::integrate_difference(
+        dof_handler, gu, WaveExact::ExactSolution<dim>(prm.wave_speed, t),
+        cell_err, QGauss<dim>(fe.degree + 2), VectorTools::L2_norm);
+
     return VectorTools::compute_global_error(
       triangulation, cell_err, VectorTools::L2_norm);
   }
 
-  // ── VTU output ─────────────────────────────────────────────
+  // ── H1 seminorm error  ||grad(u - u_h)||  
+  // Physically: related to the potential-energy part of E_h.
+  // Converges at O(h^p) — one order lower than L2's O(h^{p+1}).
+  template <int dim>
+  double WaveEquationBase<dim>::compute_h1_error(double t) const {
+    TimerOutput::Scope timer(timer_output, "05 error eval");
+    TrilinosWrappers::MPI::Vector gu(locally_owned_dofs, locally_relevant_dofs, mpi_comm);
+    gu = solution;
+    Vector<double> cell_err(triangulation.n_active_cells());
+
+    if (prm.use_mms)
+      VectorTools::integrate_difference(
+        dof_handler, gu, WaveExact::MMSExactSolution<dim>(prm.wave_speed, t),
+        cell_err, QGauss<dim>(fe.degree + 2), VectorTools::H1_seminorm);
+    else
+      VectorTools::integrate_difference(
+        dof_handler, gu, WaveExact::ExactSolution<dim>(prm.wave_speed, t),
+        cell_err, QGauss<dim>(fe.degree + 2), VectorTools::H1_seminorm);
+
+    return VectorTools::compute_global_error(
+      triangulation, cell_err, VectorTools::H1_seminorm);
+  }
+
+  // VTU output
   template <int dim>
   void WaveEquationBase<dim>::output_vtu(unsigned int step) const {
+    TimerOutput::Scope timer(timer_output, "04 vtu output");
+
     TrilinosWrappers::MPI::Vector gu(locally_owned_dofs, locally_relevant_dofs, mpi_comm);
     TrilinosWrappers::MPI::Vector gv(locally_owned_dofs, locally_relevant_dofs, mpi_comm);
     gu = solution; gv = velocity;
@@ -184,16 +245,20 @@ namespace WaveSolver {
     data_out.add_data_vector(gv, "velocity");
 
     TrilinosWrappers::MPI::Vector exact_owned(locally_owned_dofs, mpi_comm);
-    VectorTools::interpolate(dof_handler,
-      WaveExact::ExactSolution<dim>(prm.wave_speed, time), exact_owned);
+    if (prm.use_mms)
+      VectorTools::interpolate(dof_handler,
+        WaveExact::MMSExactSolution<dim>(prm.wave_speed, time), exact_owned);
+    else
+      VectorTools::interpolate(dof_handler,
+        WaveExact::ExactSolution<dim>(prm.wave_speed, time), exact_owned);
+
     TrilinosWrappers::MPI::Vector exact_vec(locally_owned_dofs, locally_relevant_dofs, mpi_comm);
     exact_vec = exact_owned;
     data_out.add_data_vector(exact_vec, "exact_solution");
 
-    // Pointwise error field for ParaView.
-    // Must compute on an owned (non-ghosted) vector — ghosted vectors are read-only.
+    // Pointwise error field 
     TrilinosWrappers::MPI::Vector err_owned(locally_owned_dofs, mpi_comm);
-    err_owned = exact_owned;                     // exact - u
+    err_owned = exact_owned;
     err_owned.add(-1.0, solution);
     TrilinosWrappers::MPI::Vector err_vec(locally_owned_dofs, locally_relevant_dofs, mpi_comm);
     err_vec = err_owned;
@@ -204,57 +269,66 @@ namespace WaveSolver {
       prm.output_dir + "/", "wave", step, mpi_comm, 4);
   }
 
-  // ── Main run loop ──────────────────────────────────────────
   template <int dim>
   void WaveEquationBase<dim>::run() {
+    if (prm.profiling)
+      timer_output.reset();
+
     make_grid();
     setup_system();
     assemble_matrices();
 
-    // Print mesh / CFL info
     const double h   = 1.0 / std::pow(2.0, (double)prm.refinements);
     const double cfl = prm.wave_speed * dt * std::sqrt((double)dim) / h;
     pcout << "─────────────────────────────────────────\n"
           << " Scheme:    " << scheme_name() << "\n"
+          << (prm.use_mms ? " Test case: MMS (manufactured solution)\n"
+                          : " Test case: Standing wave\n")
           << " DoFs:      " << dof_handler.n_dofs() << "\n"
           << " h:         " << h    << "\n"
           << " dt:        " << dt   << "\n"
           << " CFL:       " << std::fixed << std::setprecision(3) << cfl << "\n"
           << "─────────────────────────────────────────\n";
 
-    // ── Initial conditions ──────────────────────────────────
-    VectorTools::interpolate(dof_handler,
-      WaveExact::ExactSolution<dim>(prm.wave_speed, 0.), solution);
-    constraints.distribute(solution);
-    VectorTools::interpolate(dof_handler,
-      WaveExact::InitialVelocity<dim>(), velocity);
-    constraints.distribute(velocity);
+    {
+      TimerOutput::Scope t(timer_output, "01 mesh setup");
+      if (prm.use_mms) {
+        VectorTools::interpolate(dof_handler,
+          WaveExact::MMSExactSolution<dim>(prm.wave_speed, 0.), solution);
+        constraints.distribute(solution);
+        VectorTools::interpolate(dof_handler,
+          WaveExact::MMSInitialVelocity<dim>(), velocity);
+        constraints.distribute(velocity);
+      } else {
+        VectorTools::interpolate(dof_handler,
+          WaveExact::ExactSolution<dim>(prm.wave_speed, 0.), solution);
+        constraints.distribute(solution);
+        VectorTools::interpolate(dof_handler,
+          WaveExact::InitialVelocity<dim>(), velocity);
+        constraints.distribute(velocity);
+      }
+    }
 
-    // Bootstrap acceleration  a^0 = M^{-1}(-c^2 K u^0)
     compute_acceleration(acceleration, solution);
-
-    // Scheme-specific initialisation (e.g. Leapfrog sets u^{-1})
     init_scheme_state();
 
-    // ── Open log files ──────────────────────────────────────
     const unsigned int rank = Utilities::MPI::this_mpi_process(mpi_comm);
     if (rank == 0) {
-      // Create output directory if it doesn't exist
       std::filesystem::create_directories(prm.output_dir);
       energy_log.open(prm.output_dir + "/energy.csv");
       energy_log << "step,time,energy,energy_ratio\n";
       error_log.open(prm.output_dir + "/error.csv");
-      error_log << "step,time,l2_error\n";
+      error_log << "step,time,l2_error,h1_error\n";
     }
 
     const double E0 = compute_energy();
     pcout << std::fixed << std::setprecision(4)
           << "t = " << time
           << "  E = " << E0
-          << "  L2 = " << compute_l2_error(0.) << "\n";
+          << "  L2 = " << compute_l2_error(0.)
+          << "  H1 = " << compute_h1_error(0.) << "\n";
     if (prm.output_every > 0) output_vtu(0);
 
-    // ── Time loop ───────────────────────────────────────────
     Timer timer;
     double total_time = 0.;
     const unsigned int n_steps =
@@ -265,7 +339,10 @@ namespace WaveSolver {
     for (step_number = 1; step_number <= n_steps; ++step_number) {
       time = step_number * dt;
       timer.restart();
-      advance_one_step();
+      {
+        TimerOutput::Scope t(timer_output, "03 time integration");
+        advance_one_step();
+      }
       total_time += timer.wall_time();
 
       const double E = compute_energy();
@@ -273,12 +350,14 @@ namespace WaveSolver {
       if (step_number % print_every == 0)
         pcout << "t = " << std::fixed    << std::setprecision(4) << time
               << "  E/E0 = " << std::scientific << E / E0
-              << "  L2 = "   << compute_l2_error(time) << "\n";
+              << "  L2 = "   << compute_l2_error(time)
+              << "  H1 = "   << compute_h1_error(time) << "\n";
 
       if (step_number % log_every == 0) {
-        const double log_err = compute_l2_error(time);   // collective MPI
+        const double l2 = compute_l2_error(time);
+        const double h1 = compute_h1_error(time);
         if (rank == 0)
-          error_log << step_number << "," << time << "," << log_err << "\n";
+          error_log << step_number << "," << time << "," << l2 << "," << h1 << "\n";
       }
       if (rank == 0)
         energy_log << step_number << "," << time << "," << E << "," << E/E0 << "\n";
@@ -287,32 +366,39 @@ namespace WaveSolver {
         output_vtu(step_number);
     }
 
-    // ── Summary ─────────────────────────────────────────────
-    const double final_err = compute_l2_error(prm.final_time);
-    const double final_er  = compute_energy() / E0;
+    const double final_l2 = compute_l2_error(prm.final_time);
+    const double final_h1 = compute_h1_error(prm.final_time);
+    const double final_er = compute_energy() / E0;
 
-    pcout << "\nFinal L2 error: " << std::scientific << std::setprecision(6) << final_err << "\n"
-          << "Final E/E0: "       << std::scientific << std::setprecision(6) << final_er  << "\n"
-          << "Wall time: "        << std::fixed      << std::setprecision(3) << total_time << "\n";
+    pcout << "\nFinal L2 error: " << std::scientific << std::setprecision(6) << final_l2 << "\n"
+          << "Final H1 error: " << std::scientific << std::setprecision(6) << final_h1 << "\n"
+          << "Final E/E0: "     << std::scientific << std::setprecision(6) << final_er << "\n"
+          << "Wall time: "      << std::fixed      << std::setprecision(3) << total_time << "\n";
 
     if (rank == 0) {
       std::ofstream cv(prm.output_dir + "/convergence.csv", std::ios::app);
       cv.seekp(0, std::ios::end);
       if (cv.tellp() == 0)
-        cv << "scheme,fe_degree,refinements,h,dt,dofs,final_l2_error,final_energy_ratio,wall_time\n";
+        cv << "scheme,fe_degree,refinements,h,dt,dofs,final_l2_error,final_h1_error,"
+              "final_energy_ratio,wall_time,use_mms\n";
       cv << scheme_name() << ","
          << prm.fe_degree << ","
          << prm.refinements << ","
          << h << ","
          << dt << ","
          << dof_handler.n_dofs() << ","
-         << final_err << ","
-         << final_er  << ","
-         << total_time << "\n";
+         << final_l2 << ","
+         << final_h1 << ","
+         << final_er << ","
+         << total_time << ","
+         << (prm.use_mms ? "1" : "0") << "\n";
     }
 
     energy_log.close();
     error_log.close();
+
+    if (prm.profiling)
+      timer_output.print_summary();
   }
 
-} // namespace WaveSolver
+} 
