@@ -1,7 +1,4 @@
 #pragma once
-/* ============================================================
- * WaveEquationBase.hpp
- * ============================================================ */
 
 #include <deal.II/base/utilities.h>
 #include <deal.II/base/function.h>
@@ -57,6 +54,15 @@ namespace WaveSolver {
     virtual void init_scheme_state() {}
     virtual std::string scheme_name() const = 0;
 
+    // ── Adaptive time stepping (optional, used by WaveRK45) ──
+    // Default: fixed dt, existing 4 schemes unaffected.
+    virtual bool is_adaptive() const { return false; }
+    // Advance one step with embedded error estimate; on return,
+    // `dt` may have been updated for the *next* step, and the
+    // function returns the *accepted* dt used for this step
+    // (0.0 if the step was rejected and must be retried).
+    virtual double advance_one_step_adaptive() { return 0.0; }
+
     void make_grid();
     void setup_system();
     void assemble_matrices();
@@ -103,6 +109,7 @@ namespace WaveSolver {
   private:
     std::ofstream energy_log;
     std::ofstream error_log;
+    std::ofstream adaptive_log;
   };
 
 } // namespace WaveSolver

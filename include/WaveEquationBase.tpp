@@ -5,7 +5,7 @@
 namespace WaveSolver {
   using namespace dealii;
 
-  // ── Constructor 
+  // ── Constructor -───
   template <int dim>
   WaveEquationBase<dim>::WaveEquationBase(const Parameters &prm)
     : prm(prm),
@@ -19,7 +19,7 @@ namespace WaveSolver {
                     TimerOutput::wall_times)
   {}
 
-  // Grid
+  // ── Grid ──────
   template <int dim>
   void WaveEquationBase<dim>::make_grid() {
     TimerOutput::Scope t(timer_output, "01 mesh setup");
@@ -27,6 +27,7 @@ namespace WaveSolver {
     triangulation.refine_global(prm.refinements);
   }
 
+  // ── DoF setup ─
   template <int dim>
   void WaveEquationBase<dim>::setup_system() {
     TimerOutput::Scope t(timer_output, "01 mesh setup");
@@ -55,6 +56,7 @@ namespace WaveSolver {
     acceleration.reinit(locally_owned_dofs, mpi_comm);
   }
 
+  // ── Matrix assembly ────────────────────────────────────────
   template <int dim>
   void WaveEquationBase<dim>::assemble_matrices() {
     TimerOutput::Scope t(timer_output, "02 assembly");
@@ -89,6 +91,7 @@ namespace WaveSolver {
     stiffness_matrix.compress(VectorOperation::add);
   }
 
+  // ── Dirichlet BC (legacy helper — used by Leapfrog/RK4) ───
   template <int dim>
   void WaveEquationBase<dim>::apply_dirichlet_bc(
     TrilinosWrappers::MPI::Vector &v, double t) const
@@ -110,6 +113,7 @@ namespace WaveSolver {
     v = result;
   }
 
+  // ── MMS source term: rhs += M * f(t) (interpolated) ───────
   template <int dim>
   void WaveEquationBase<dim>::add_mms_source(
     TrilinosWrappers::MPI::Vector &rhs, double t) const
@@ -124,10 +128,11 @@ namespace WaveSolver {
     mass_matrix.vmult(Mf, f_nodal);
 
     // rhs += dt^2 * M * f   (Newmark RHS contribution, beta absorbed by caller
+    // is NOT applied here — caller scales appropriately)
     rhs.add(1.0, Mf);
   }
 
-  // ── Acceleration solve:  M*acc = -c^2*K*u (+ source)
+  // ── Acceleration solve:  M*acc = -c^2*K*u (+ source) ──────
   template <int dim>
   void WaveEquationBase<dim>::compute_acceleration(
     TrilinosWrappers::MPI::Vector &acc,
@@ -155,7 +160,7 @@ namespace WaveSolver {
     constraints.distribute(acc);
   }
 
-  // ── Discrete energy  E = ½(v^T M v + c^2 u^T K u)
+  // ── Discrete energy  E = ½(v^T M v + c^2 u^T K u) ────────
   template <int dim>
   double WaveEquationBase<dim>::compute_energy() const {
     TrilinosWrappers::MPI::Vector gu(locally_owned_dofs, locally_relevant_dofs, mpi_comm);
@@ -207,7 +212,7 @@ namespace WaveSolver {
       triangulation, cell_err, VectorTools::L2_norm);
   }
 
-  // ── H1 seminorm error  ||grad(u - u_h)||  
+  // ── H1 seminorm error  ||grad(u - u_h)||  ─────────────────
   // Physically: related to the potential-energy part of E_h.
   // Converges at O(h^p) — one order lower than L2's O(h^{p+1}).
   template <int dim>
@@ -230,7 +235,7 @@ namespace WaveSolver {
       triangulation, cell_err, VectorTools::H1_seminorm);
   }
 
-  // VTU output
+  // ── VTU output 
   template <int dim>
   void WaveEquationBase<dim>::output_vtu(unsigned int step) const {
     TimerOutput::Scope timer(timer_output, "04 vtu output");
@@ -256,7 +261,7 @@ namespace WaveSolver {
     exact_vec = exact_owned;
     data_out.add_data_vector(exact_vec, "exact_solution");
 
-    // Pointwise error field 
+    // Pointwise error field (owned vectors only — ghosted are read-only)
     TrilinosWrappers::MPI::Vector err_owned(locally_owned_dofs, mpi_comm);
     err_owned = exact_owned;
     err_owned.add(-1.0, solution);
@@ -280,7 +285,7 @@ namespace WaveSolver {
 
     const double h   = 1.0 / std::pow(2.0, (double)prm.refinements);
     const double cfl = prm.wave_speed * dt * std::sqrt((double)dim) / h;
-    pcout << "─────────────────────────────────────────\n"
+    pcout << "-\n"
           << " Scheme:    " << scheme_name() << "\n"
           << (prm.use_mms ? " Test case: MMS (manufactured solution)\n"
                           : " Test case: Standing wave\n")
@@ -288,7 +293,7 @@ namespace WaveSolver {
           << " h:         " << h    << "\n"
           << " dt:        " << dt   << "\n"
           << " CFL:       " << std::fixed << std::setprecision(3) << cfl << "\n"
-          << "─────────────────────────────────────────\n";
+          << "-\n";
 
     {
       TimerOutput::Scope t(timer_output, "01 mesh setup");
@@ -319,6 +324,10 @@ namespace WaveSolver {
       energy_log << "step,time,energy,energy_ratio\n";
       error_log.open(prm.output_dir + "/error.csv");
       error_log << "step,time,l2_error,h1_error\n";
+      if (is_adaptive()) {
+        adaptive_log.open(prm.output_dir + "/adaptive_dt.csv");
+        adaptive_log << "step,time,dt,error_estimate\n";
+      }
     }
 
     const double E0 = compute_energy();
@@ -331,41 +340,95 @@ namespace WaveSolver {
 
     Timer timer;
     double total_time = 0.;
-    const unsigned int n_steps =
-      static_cast<unsigned int>(std::round(prm.final_time / dt));
-    const unsigned int print_every = std::max(1u, n_steps / 5);
-    const unsigned int log_every   = std::max(1u, n_steps / 20);
 
-    for (step_number = 1; step_number <= n_steps; ++step_number) {
-      time = step_number * dt;
-      timer.restart();
-      {
-        TimerOutput::Scope t(timer_output, "03 time integration");
-        advance_one_step();
-      }
-      total_time += timer.wall_time();
+    if (is_adaptive()) {
+      const unsigned int print_every_n = 20; 
+      unsigned int n_rejected = 0;
 
-      const double E = compute_energy();
+      while (time < prm.final_time - 1e-12) {
+        if (time + dt > prm.final_time)
+          dt = prm.final_time - time;
 
-      if (step_number % print_every == 0)
-        pcout << "t = " << std::fixed    << std::setprecision(4) << time
-              << "  E/E0 = " << std::scientific << E / E0
-              << "  L2 = "   << compute_l2_error(time)
-              << "  H1 = "   << compute_h1_error(time) << "\n";
+        timer.restart();
+        double accepted_dt;
+        {
+          TimerOutput::Scope t(timer_output, "03 time integration");
+          accepted_dt = advance_one_step_adaptive();
+        }
+        total_time += timer.wall_time();
 
-      if (step_number % log_every == 0) {
+        if (accepted_dt == 0.0) {
+          ++n_rejected;
+          continue;
+        }
+
+        time += accepted_dt;
+        ++step_number;
+        const double E = compute_energy();
+
+        if (step_number % print_every_n == 0)
+          pcout << "t = " << std::fixed    << std::setprecision(4) << time
+                << "  dt = " << std::scientific << accepted_dt
+                << "  E/E0 = " << E / E0
+                << "  L2 = "   << compute_l2_error(time)
+                << "  H1 = "   << compute_h1_error(time) << "\n";
+
+        // compute_l2_error/compute_h1_error are collective MPI operations —
+        // must be called by ALL ranks
         const double l2 = compute_l2_error(time);
         const double h1 = compute_h1_error(time);
-        if (rank == 0)
-          error_log << step_number << "," << time << "," << l2 << "," << h1 << "\n";
-      }
-      if (rank == 0)
-        energy_log << step_number << "," << time << "," << E << "," << E/E0 << "\n";
+        if (rank == 0) {
+          energy_log   << step_number << "," << time << "," << E << "," << E/E0 << "\n";
+          adaptive_log << step_number << "," << time << "," << accepted_dt << "," << 0.0 << "\n";
+          error_log    << step_number << "," << time << "," << l2 << "," << h1 << "\n";
+        }
 
-      if (prm.output_every > 0 && step_number % prm.output_every == 0)
-        output_vtu(step_number);
+        if (prm.output_every > 0 && step_number % prm.output_every == 0)
+          output_vtu(step_number);
+      }
+
+      pcout << "\nAdaptive stepping: " << step_number << " accepted steps, "
+            << n_rejected << " rejected.\n";
+
+    } else {
+
+      const unsigned int n_steps =
+        static_cast<unsigned int>(std::round(prm.final_time / dt));
+      const unsigned int print_every = std::max(1u, n_steps / 5);
+      const unsigned int log_every   = std::max(1u, n_steps / 20);
+
+      for (step_number = 1; step_number <= n_steps; ++step_number) {
+        time = step_number * dt;
+        timer.restart();
+        {
+          TimerOutput::Scope t(timer_output, "03 time integration");
+          advance_one_step();
+        }
+        total_time += timer.wall_time();
+
+        const double E = compute_energy();
+
+        if (step_number % print_every == 0)
+          pcout << "t = " << std::fixed    << std::setprecision(4) << time
+                << "  E/E0 = " << std::scientific << E / E0
+                << "  L2 = "   << compute_l2_error(time)
+                << "  H1 = "   << compute_h1_error(time) << "\n";
+
+        if (step_number % log_every == 0) {
+          const double l2 = compute_l2_error(time);
+          const double h1 = compute_h1_error(time);
+          if (rank == 0)
+            error_log << step_number << "," << time << "," << l2 << "," << h1 << "\n";
+        }
+        if (rank == 0)
+          energy_log << step_number << "," << time << "," << E << "," << E/E0 << "\n";
+
+        if (prm.output_every > 0 && step_number % prm.output_every == 0)
+          output_vtu(step_number);
+      }
     }
 
+    // final summary 
     const double final_l2 = compute_l2_error(prm.final_time);
     const double final_h1 = compute_h1_error(prm.final_time);
     const double final_er = compute_energy() / E0;
@@ -396,9 +459,11 @@ namespace WaveSolver {
 
     energy_log.close();
     error_log.close();
+    if (adaptive_log.is_open())
+      adaptive_log.close();
 
     if (prm.profiling)
       timer_output.print_summary();
   }
 
-} 
+} // namespace WaveSolver

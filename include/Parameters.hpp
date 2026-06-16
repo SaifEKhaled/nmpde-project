@@ -15,6 +15,9 @@ struct Parameters {
   std::string  output_dir     = "../results";
   bool         use_mms        = false;    // manufactured solution test
   bool         profiling      = false;    // print TimerOutput breakdown
+  double       adaptive_tol   = 1e-6;     // local error tolerance (RK45)
+  double       min_dt         = 1e-6;     // smallest allowed dt
+  double       max_dt         = 0.1;      // largest allowed dt
 
   void declare(dealii::ParameterHandler &prm) {
     prm.declare_entry("Final time",   "1.0",       dealii::Patterns::Double(0));
@@ -23,13 +26,16 @@ struct Parameters {
     prm.declare_entry("Refinements",  "5",         dealii::Patterns::Integer(1));
     prm.declare_entry("FE degree",    "1",         dealii::Patterns::Integer(1));
     prm.declare_entry("Scheme",       "CN",
-      dealii::Patterns::Selection("CN|BE|FE|Leapfrog|RK4"));
+      dealii::Patterns::Selection("CN|BE|FE|Leapfrog|RK4|RK45"));
     prm.declare_entry("Theta",        "0.5",       dealii::Patterns::Double(0,1));
     prm.declare_entry("Time step",    "0.01",      dealii::Patterns::Double(0));
     prm.declare_entry("Output every", "20",        dealii::Patterns::Integer(0));
     prm.declare_entry("Output dir",   "../results",dealii::Patterns::Anything());
     prm.declare_entry("MMS",          "false",     dealii::Patterns::Bool());
     prm.declare_entry("Profiling",    "false",     dealii::Patterns::Bool());
+    prm.declare_entry("Adaptive tolerance", "1e-6", dealii::Patterns::Double(0));
+    prm.declare_entry("Min dt",       "1e-6",      dealii::Patterns::Double(0));
+    prm.declare_entry("Max dt",       "0.1",       dealii::Patterns::Double(0));
   }
 
   void parse(dealii::ParameterHandler &prm) {
@@ -45,7 +51,11 @@ struct Parameters {
     output_dir   = prm.get         ("Output dir");
     use_mms      = prm.get_bool    ("MMS");
     profiling    = prm.get_bool    ("Profiling");
+    adaptive_tol = prm.get_double  ("Adaptive tolerance");
+    min_dt       = prm.get_double  ("Min dt");
+    max_dt       = prm.get_double  ("Max dt");
 
+    // Map friendly names -> internal Theta scheme + theta value
     if      (scheme == "CN") { scheme = "Theta"; theta = 0.5; }
     else if (scheme == "BE") { scheme = "Theta"; theta = 1.0; }
     else if (scheme == "FE") { scheme = "Theta"; theta = 0.0; }

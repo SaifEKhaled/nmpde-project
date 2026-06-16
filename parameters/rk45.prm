@@ -1,0 +1,17 @@
+# Adaptive embedded RK45 (Dormand-Prince)
+# dt is adjusted automatically to keep the local error estimate
+# near 'Adaptive tolerance'. 'Time step' below is only the INITIAL dt.
+set Final time         = 1.0
+set Wave speed         = 1.0
+set Refinements        = 5
+set FE degree          = 1
+set Scheme             = RK45
+set Theta              = 0.5
+set Time step          = 0.005
+set Output every       = 0
+set Output dir         = ../results
+set MMS                = false
+set Profiling          = false
+set Adaptive tolerance = 1e-6
+set Min dt             = 1e-6
+set Max dt             = 0.02

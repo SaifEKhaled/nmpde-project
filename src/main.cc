@@ -7,12 +7,18 @@
  *   FE       -> Forward Euler  (theta=0.0, 1st order, explicit)
  *   Leapfrog -> Störmer-Verlet (2nd order, symplectic, explicit)
  *   RK4      -> Runge-Kutta 4  (4th order, explicit)
+ *
+ * The "Dimension" field (2 or 3) selects the spatial dimension.
+ * All exact solutions, source terms, and the CFL formula are
+ * dimension-generic (standing wave = product of sines over `dim`
+ * coordinates, omega = c*pi*sqrt(dim)).
  * ============================================================ */
 
 #include "Parameters.hpp"
 #include "WaveTheta.hpp"
 #include "WaveLeapfrog.hpp"
 #include "WaveRK4.hpp"
+#include "WaveRK45.hpp"
 
 #include <deal.II/base/utilities.h>
 #include <deal.II/base/logstream.h>
@@ -31,6 +37,8 @@ void run_solver(const Parameters &prm) {
     solver = std::make_unique<WaveSolver::WaveLeapfrog<dim>>(prm);
   } else if (prm.scheme == "RK4") {
     solver = std::make_unique<WaveSolver::WaveRK4<dim>>(prm);
+  } else if (prm.scheme == "RK45") {
+    solver = std::make_unique<WaveSolver::WaveRK45<dim>>(prm);
   } else {
     throw std::runtime_error("Unknown scheme: " + prm.scheme);
   }
