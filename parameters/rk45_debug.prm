@@ -1,0 +1,15 @@
+# Debug version: tiny final time, print every step, looser tolerance
+set Final time         = 0.02
+set Wave speed         = 1.0
+set Refinements        = 3
+set FE degree          = 1
+set Scheme             = RK45
+set Theta              = 0.5
+set Time step          = 0.005
+set Output every       = 0
+set Output dir         = ../results
+set MMS                = false
+set Profiling          = false
+set Adaptive tolerance = 1e-3
+set Min dt             = 1e-6
+set Max dt             = 0.02

@@ -1,0 +1,129 @@
+name: Build & Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    name: Build (deal.II 9.4, Ubuntu 22.04)
+    runs-on: ubuntu-latest
+    container:
+      image: dealii/dealii:v9.4.2-jammy
+      options: --user root
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure (Release)
+        run: |
+          mkdir -p build
+          cd build
+          cmake -DCMAKE_BUILD_TYPE=Release ..
+
+      - name: Build
+        run: |
+          cd build
+          make -j$(nproc)
+
+      - name: Verify executable exists
+        run: test -x build/wave_equation
+
+      - name: Smoke test — Crank-Nicolson (energy conservation)
+        run: |
+          mkdir -p results
+          mpirun --allow-run-as-root --oversubscribe -np 2 \
+            build/wave_equation parameters/theta_cn.prm | tee cn.log
+          python3 - <<'EOF'
+          import re
+          log = open("cn.log").read()
+          er = float(re.search(r"Final E/E0:\s*([\d.eE+\-]+)", log).group(1))
+          assert abs(er - 1.0) < 1e-4, f"CN energy not conserved: E/E0={er}"
+          print(f"OK: CN E/E0 = {er}")
+          EOF
+
+      - name: Smoke test — RK4 (energy conservation + accuracy)
+        run: |
+          mpirun --allow-run-as-root --oversubscribe -np 2 \
+            build/wave_equation parameters/rk4.prm | tee rk4.log
+          python3 - <<'EOF'
+          import re
+          log = open("rk4.log").read()
+          er = float(re.search(r"Final E/E0:\s*([\d.eE+\-]+)", log).group(1))
+          l2 = float(re.search(r"Final L2 error:\s*([\d.eE+\-]+)", log).group(1))
+          assert abs(er - 1.0) < 1e-4, f"RK4 energy not conserved: E/E0={er}"
+          assert l2 < 1e-2, f"RK4 L2 error too large: {l2}"
+          print(f"OK: RK4 E/E0 = {er}, L2 = {l2}")
+          EOF
+
+      - name: Smoke test — Leapfrog CFL stability
+        run: |
+          mpirun --allow-run-as-root --oversubscribe -np 2 \
+            build/wave_equation parameters/leapfrog.prm | tee leapfrog.log
+          python3 - <<'EOF'
+          import re
+          log = open("leapfrog.log").read()
+          er = float(re.search(r"Final E/E0:\s*([\d.eE+\-]+)", log).group(1))
+          assert 0.9 < er < 1.1, f"Leapfrog unstable at nominal dt: E/E0={er}"
+          print(f"OK: Leapfrog E/E0 = {er}")
+          EOF
+
+      - name: Smoke test — MMS (manufactured solution)
+        run: |
+          mpirun --allow-run-as-root --oversubscribe -np 2 \
+            build/wave_equation parameters/mms_cn.prm | tee mms.log
+          python3 - <<'EOF'
+          import re
+          log = open("mms.log").read()
+          l2 = float(re.search(r"Final L2 error:\s*([\d.eE+\-]+)", log).group(1))
+          h1 = float(re.search(r"Final H1 error:\s*([\d.eE+\-]+)", log).group(1))
+          assert l2 < 1e-2, f"MMS L2 error too large: {l2}"
+          assert h1 < 1.0,  f"MMS H1 error too large: {h1}"
+          print(f"OK: MMS L2 = {l2}, H1 = {h1}")
+          EOF
+
+      - name: Smoke test — 3D standing wave (energy conservation)
+        run: |
+          mpirun --allow-run-as-root --oversubscribe -np 2 \
+            build/wave_equation parameters/theta_cn_3d.prm | tee cn3d.log
+          python3 - <<'EOF'
+          import re
+          log = open("cn3d.log").read()
+          er = float(re.search(r"Final E/E0:\s*([\d.eE+\-]+)", log).group(1))
+          assert abs(er - 1.0) < 1e-4, f"3D CN energy not conserved: E/E0={er}"
+          print(f"OK: 3D CN E/E0 = {er}")
+          EOF
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: solver-logs
+          path: |
+            cn.log
+            rk4.log
+            leapfrog.log
+            mms.log
+            cn3d.log
+
+  python-checks:
+    name: Python script syntax check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Compile-check all scripts
+        run: |
+          python3 -m compileall scripts/ -q
+
+      - name: Validate notebooks are valid JSON
+        run: |
+          for nb in notebooks/*.ipynb; do
+            python3 -c "import json; json.load(open('$nb'))" \
+              && echo "OK: $nb"
+          done

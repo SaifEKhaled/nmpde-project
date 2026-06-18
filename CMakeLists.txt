@@ -1,7 +1,15 @@
-cmake_minimum_required(VERSION 3.12.0)
-project(project_title LANGUAGES CXX C)
+cmake_minimum_required(VERSION 3.13)
+project(WaveEquation CXX)
 
-include(../common/cmake-common.cmake)
+find_package(deal.II 9.3
+  HINTS ${deal.II_DIR} ${DEAL_II_DIR} $ENV{DEAL_II_DIR}
+  REQUIRED)
 
-add_executable(lab-01 src/lab-01.cpp src/Poisson1D.cpp)
-deal_ii_setup_target(lab-01)
+deal_ii_initialize_cached_variables()
+
+add_executable(wave_equation src/main.cc)
+target_include_directories(wave_equation PRIVATE ${CMAKE_SOURCE_DIR}/include)
+deal_ii_setup_target(wave_equation)
+
+# Create results/ next to the project root (where the executable is run from)
+file(MAKE_DIRECTORY ${CMAKE_SOURCE_DIR}/results)

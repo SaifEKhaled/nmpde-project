@@ -1,0 +1,13 @@
+# Manufactured solution test (CN / Newmark beta=0.25)
+# u_mms = sin(pi*x)*sin(pi*y)*sin(pi*t)
+set Final time    = 1.0
+set Wave speed    = 1.0
+set Refinements   = 5
+set FE degree     = 1
+set Scheme        = CN
+set Theta         = 0.5
+set Time step     = 0.01
+set Output every  = 0
+set Output dir    = ../results
+set MMS           = true
+set Profiling     = false

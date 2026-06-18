@@ -1,0 +1,10 @@
+# Backward Euler: theta=1.0, 1st-order, unconditionally stable, dissipative
+set Final time    = 1.0
+set Wave speed    = 1.0
+set Refinements   = 5
+set FE degree     = 1
+set Scheme        = BE
+set Theta         = 1.0
+set Time step     = 0.01
+set Output every  = 10
+set Output dir    = ../results
